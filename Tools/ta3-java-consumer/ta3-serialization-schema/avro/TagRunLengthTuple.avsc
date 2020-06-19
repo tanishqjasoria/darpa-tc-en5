@@ -1,0 +1,19 @@
+{
+  "type" : "record",
+  "name" : "TagRunLengthTuple",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* This record is a single tuple in a run length encoding of tags",
+  "fields" : [ {
+    "name" : "numValueElements",
+    "type" : "int",
+    "default" : 0
+  }, {
+    "name" : "tagId",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    }
+  } ]
+}

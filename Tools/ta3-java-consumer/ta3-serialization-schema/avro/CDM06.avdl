@@ -1,0 +1,578 @@
+/*
+ * This software delivered to the Government with unlimited rights
+ * pursuant to contract FA8750-C-15-7559.
+ *
+ * ===== TRANSPARENT COMPUTING (TC) COMMON DATA MODEL (CDM) =====
+ *
+ *  This is the first version of the CDM schema.
+ *  The CDM is a property graph (vertices and edges with properties)
+ *  that has additional typing of the vertices and edges to match the
+ *  TC domain. All vertex and edge records are atomic and immutable.
+ *
+ *  The schema is defined using Avro's IDL specification language (see
+ *  http://avro.apache.org/docs/1.8.0/idl.html).  The schema is
+ *  independent of the language bindings used to operate on it.  IDL
+ *  makes it easy and simple to represent the schema. Tools exist to
+ *  map the IDL to a verbose JSON representation (avsc) as well as to
+ *  compiled language-specific objects.  Optional fields are marked
+ *  using the notation union {null, <type>} <fieldName> = null
+ *
+ * CDM Schema version 0.6 changes:
+ *   - Added SensorObject and SensorTypes to accommodate Andro5id
+ *   - Renamed Source to InstrumentationSource and defined a set of them
+ *   - Added program point to event, and added blind event type
+ *   - Added principal, does not yet model authentication
+ *   - Added unique ids (uids) to all entities, important for streaming efficiency and for modeling edges
+ *   - Refactored Tags, now objects have an edge to a tag id containing the tagExpression
+ *   - Refactored timestamps, now long (we will add logical types when that is supported in IDL)
+ *   - Removed all edges except for single SimpleEdge for streaming efficiency
+ *   - Refactored Object inheritance for AbstractObject, File, Netflow, Memory, Sensor
+ *   - Added optional key-value pairs to all entities and edges for extensibility
+ *   - added verbose documentation that we will maintain going forward
+ *
+ * TODOs:
+ *  TODO verify optional vs mandatory fields
+ *  TODO think harder about the syntax of the tag expression (currently string, inefficient)
+ *  TODO model the hosts and other containers
+ *  TODO repreenting bytes as value entities results in a size explosion (UNM)
+ *  TODO for now we modeled camera and GPS as part of sensors, revisit later for higher fidelity
+ *  TODO model authentication mechanisms: how to model, is TA1 providing the info, and how?
+ *  TODO track Avro 1.8.0 support for logical types (time, date,..) in IDL
+ *
+ * USAGE:
+ *  To convert this IDL to avsc which automatically creates the avsc files under avro/
+ *  change to the project base directory and
+ *     %  mvn clean exec:java
+ *
+ *  To manually convert this to avsc:
+ *     %  cd avro/
+ *     %  java -jar avro-tools-1.8.0.jar idl2schemata CDM.avdl .
+ *
+ * NOTES:
+ *   - Avro 1.8.0 added support for data and timestamps using logical types
+ *     see https://issues.apache.org/jira/browse/AVRO-739
+ *     while this is currently supported in the avsc spec, it is not yet in avdl
+ *     so here we are using longs for timestamps
+ */
+
+@namespace("com.bbn.tc.schema.avro")
+protocol TCCDMDataProtocol { // protocol here means a wrapper
+
+    // ======================================
+    //      FIXED
+    // ======================================
+
+    /** 2 bytes fixed type */
+    fixed SHORT(2);
+
+    // ======================================
+    //      ENUMS
+    // ======================================
+
+    /**
+     * SUBJECT_PROCESS,    process
+     * SUBJECT_THREAD,     thread within a process
+     * SUBJECT_UNIT        so far we only know of TRACE BEEP using this
+     */
+    enum SubjectType {
+        SUBJECT_PROCESS,
+        SUBJECT_THREAD,
+        SUBJECT_UNIT
+    }
+
+    /**
+     * The type of a sensor could be base (close to hardware) or composite
+     * See https://source.android.com/devices/sensors/index.html for details
+     * TODO: camera and GPS ideally should be modeled separately to match the Android model. These are rich subsystems
+     */
+    enum SensorType {
+        // base sensors
+        SENSOR_ACCELEROMETER,
+        SENSOR_TEMPERATURE,
+        SENSOR_GYROSCOPE,
+        SENSOR_MAGNETIC_FIELD,
+        SENSOR_HEAR_RATE,
+        SENSOR_LIGHT,
+        SENSOR_PROXIMITY,
+        SENSOR_PRESSURE,
+        SENSOR_RELATIVE_HUMIDITY,
+        // composite sensors
+        SENSOR_LINEAR_ACCELERATION,
+        SENSOR_MOTION,
+        SENSOR_STEP_DETECTOR,
+        SENSOR_STEP_COUNTER,
+        SENSOR_TILT_DETECTOR,
+        SENSOR_ROTATION_VECTOR,
+        SENSOR_GRAVITY,
+        SENSOR_GEOMAGNETIC_ROTATION_VECTOR,
+        // camera and GPS, temporary
+        SENSOR_CAMERA,
+        SENSOR_GPS
+    }
+
+    /**
+     * SOURCE_LINUX_AUDIT_TRACE,          from Linux /dev/audit
+     * SOURCE_LINUX_PROC_TRACE,           from Linux's /proc
+     * SOURCE_FREEBSD_OPENBSM_TRACE,      from FreeBSD openBSM
+     * SOURCE_ANDROID_JAVA_CLEARSCOPE,    from android java instrumentation
+     * SOURCE_ANDROID_NATIVE_CLEARSCOPE,  from android's native instrumentation
+     * SOURCE_LINUX_AUDIT_CADETS          placeholder for now
+     *
+     */
+    enum InstrumentationSource {
+        SOURCE_LINUX_AUDIT_TRACE,
+        SOURCE_LINUX_PROC_TRACE,
+        SOURCE_FREEBSD_OPENBSM_TRACE,
+        SOURCE_ANDROID_JAVA_CLEARSCOPE,
+        SOURCE_ANDROID_NATIVE_CLEARSCOPE,
+        SOURCE_LINUX_AUDIT_CADETS
+        // TODO: add others
+    }
+
+    /**
+     * The type of principal may be local to the host, or remote users/systems.
+     */
+    enum PrincipalType {
+        PRINCIPAL_LOCAL,            // a principal local on the host
+        PRINCIPAL_REMOTE            // a remote principal
+    }
+
+    /**
+     * These event types correspond to the common system calls. Note that we added a blind event
+     *   EVENT_ACCEPT                     accept a connection on an object
+     *   EVENT_BIND                       bind to a network endpoint object
+     *   EVENT_CHANGE_PRINCIPAL           change the principal associated with the process
+     *   EVENT_CHECK_FILE_ATTRIBUTES      check the file attributes such as permissions
+     *   EVENT_CLOSE                      close an object
+     *   EVENT_CONNECT                    connect to an object
+     *   EVENT_CREATE_OBJECT              create an object
+     *   EVENT_CREATE_THREAD              create a thread subject
+     *   EVENT_EXECUTE                    execute an object
+     *   EVENT_FORK                       fork a process subject
+     *   EVENT_LINK                       link an object to a new name
+     *   EVENT_UNLINK                     unlink a name from an object
+     *   EVENT_MMAP                       memory map an object
+     *   EVENT_MODIFY_FILE_ATTRIBUTES     modify the attributes of a file object
+     *   EVENT_MPROTECT                   change permissions of a memory object
+     *   EVENT_OPEN                       open an object
+     *   EVENT_READ                       read an object
+     *   EVENT_WRITE                      write to an object
+     *   EVENT_SIGNAL                     signal another subject
+     *   EVENT_TRUNCATE                   truncate an object
+     *   EVENT_WAIT                       wait on another subject
+     *   EVENT_BLIND                       blind event for a black boxes that are not instrumented
+     */
+    enum EventType {
+        EVENT_ACCEPT,
+        EVENT_BIND,
+        EVENT_CHANGE_PRINCIPAL,
+        EVENT_CHECK_FILE_ATTRIBUTES,
+        EVENT_CLOSE,
+        EVENT_CONNECT,
+        EVENT_CREATE_OBJECT,
+        EVENT_CREATE_THREAD,
+        EVENT_EXECUTE,
+        EVENT_FORK,
+        EVENT_LINK,
+        EVENT_UNLINK,
+        EVENT_MMAP,
+        EVENT_MODIFY_FILE_ATTRIBUTES,
+        EVENT_MPROTECT,
+        EVENT_OPEN,
+        EVENT_READ,
+        EVENT_WRITE,
+        EVENT_SIGNAL,
+        EVENT_TRUNCATE,
+        EVENT_WAIT,
+        EVENT_BLIND
+    }
+
+    /**
+     * The different types of simple edges in the CDM
+     *   EDGE_VALUE_HASTAG                  a value has a tag (when tracking granular provenance)
+     *   EDGE_VALUE_AFFECTS_EVENT           a value affects an event (such as input string or buffer to an event)
+     *   EDGE_EVENT_AFFECTS_VALUE           an event affects a value (such as creating a value)
+     *   EDGE_EVENT_AFFECTS_MEMORY          an event affects a memory object (such as updating a memory location)
+     *   EDGE_EVENT_AFFECTS_FILE            an event affects a file object (such as writing to a file)
+     *   EDGE_EVENT_AFFECTS_NETFLOW         an event affects a netflow object (such as writing to socket)
+     *   EDGE_EVENT_AFFECTS_SUBJECT         an event affects a subject (such as forking a process)
+     *   EDGE_EVENT_HASPARENT_EVENT         a metaevent that represents a set of child atomic events
+     *   EDGE_EVENT_ISGENERATEDBY_SUBJECT   an event is generated by a subject (every event is)
+     *   EDGE_SUBJECT_AFFECTS_EVENT         a subject affects an event (such as when killing a process)
+     *   EDGE_SUBJECT_HASPARENT_SUBJECT     a subject has a parent subject (such as thread has parent process)
+     *   EDGE_SUBJECT_HASTAG                a subject has a tag (TODO: not sure when this will be used)
+     *   EDGE_SUBJECT_HASPRINCIPAL          a subject has a principal (such as a process owned by a user)
+     *   EDGE_SUBJECT_RUNSON                a subject runs on a host (TODO: host not yet modeled)
+     *   EDGE_OBJECT_PREV_VERSION           the previous version of an object, typically used for file versioning
+     *
+     */
+    enum EdgeType {
+        EDGE_VALUE_HASTAG,
+        EDGE_VALUE_AFFECTS_EVENT,
+        EDGE_EVENT_AFFECTS_VALUE,
+        EDGE_EVENT_AFFECTS_MEMORY,
+        EDGE_EVENT_AFFECTS_FILE,
+        EDGE_EVENT_AFFECTS_NETFLOW,
+        EDGE_EVENT_AFFECTS_SUBJECT,
+        EDGE_EVENT_HASPARENT_EVENT,
+        EDGE_EVENT_ISGENERATEDBY_SUBJECT,
+        EDGE_SUBJECT_AFFECTS_EVENT,
+        EDGE_SUBJECT_HASPARENT_SUBJECT,
+        EDGE_SUBJECT_HASTAG,
+        EDGE_SUBJECT_HASLOCALPRINCIPAL,
+        EDGE_SUBJECT_RUNSON,
+        EDGE_OBJECT_PREV_VERSION
+    }
+
+    /**
+     * The local authentication types
+     * TODO: see Principal, currently this is not used
+     */
+    enum LocalAuthType {
+        LOCALAUTH_NONE,
+        LOCALAUTH_PASSWORD,
+        LOCALAUTH_PUBLIC_KEY,
+        LOCALAUTH_ONE_TIME_PASSWORD
+    }
+
+    /**
+     * The integrity tag may be used to specify the initial integrity of an entity,
+     * or to endorse its content after performing appropriate checking/sanitization.
+     */
+    enum IntegrityTag {
+        INTEGRITY_UNTRUSTED,
+        INTEGRITY_BENIGN,
+        INTEGRITY_INVULNERABLE
+    }
+
+    /**
+     * The confidentiality tag may be used to specify the initial confidentiality of an entity,
+     * or to declassify its content after performing appropriate checking/sanitization.
+     */
+    enum ConfidentialityTag {
+        CONFIDENTIALITY_SECRET,
+        CONFIDENTIALITY_SENSITIVE,
+        CONFIDENTIALITY_PRIVATE,
+        CONFIDENTIALITY_PUBLIC
+    }
+
+    // ======================================
+    //      VERTEX RECORDS
+    // ======================================
+
+    /**
+     * Subjects represent execution contexts and include mainly threads and processes.
+     * They can be more granular and can represent other execution boundaries such as
+     * functions and blocks if needed.
+     */
+    record Subject {
+        /** universally unique identifier for the subject */
+        long uid;
+
+        /** the subject type */
+        SubjectType type;
+
+        /** Where it came from, see InstrumentationSource */
+        InstrumentationSource source;
+
+        /** The start time of the subject */
+        long startTimestampMicros;
+
+        /** The end time of the subject (Optional)*/
+        union {null, long} endTimestampMicros = null;
+
+        /** OS process id for type process and unit id for a unit (Optional)*/
+        union {null, int} pid = null;
+
+        /** OS parent process id for type process and pid for type unit (Optional)*/
+        union {null, int} ppid = null;
+
+        /** unit id for unit based instrumentation (Optional)*/
+        union {null, int} unitId = null;
+
+        /** Process command line arguments including process name (Optional) */
+        union {null, string} cmdLine = null;
+
+        /** Process environment variables (Optional) */
+        union {null, string} envVars = null;
+
+        /** Arbitrary key, value pairs describing the entity */
+        union {null, map<string>} properties = null;
+    }
+
+    /**
+     * Events represent actions executed on behalf of subjects. Events could include system calls,
+     * function calls, instruction executions, or even more abstract notions representing a blind execution
+     * such as black boxes that are not instrumented (more shortly). Events are the core entity in the model
+     * and they are the main abstraction for representing information flow between data objects, and subjects.
+     * Events are atomic and immutable.
+     */
+    record Event {
+        /** A universally unique identifier for the event */
+        long uid;
+
+        /**
+         * The time at which the event occurred. Timestamps allow reasoning about order of events
+         *  on a host when the same clock is used.
+         * TODO When different clocks are used on a host or across hosts, we need to also define a clock source
+         * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.
+         */
+        long timestampMicros; //TODO add logical type timestamp_micros
+
+        /** A logical sequence number for ordering events relative to each other within a subject's execution context*/
+        long sequence;
+
+        /** The type of the event */
+        EventType type;
+
+        /** What source system generated this event, see InstrumentationSource*/
+        InstrumentationSource source;
+
+        /** Location refers to the location of the data affecting the event
+         *  (e.g., the read offset in the file for the read system call event (Optional)
+         */
+        union {null, long} location = null;
+
+        /** Size refers to the size of the data affecting the event
+         *  (e.g., the number of bytes read from the file for the read system call event (Optional)
+         */
+        union {null, long} size = null;
+
+        /** The program point where the event was triggered (e.g., executable and line number), (Optional) */
+        union {null, string} programPoint = null;
+
+        /** Arbitrary key, value pairs describing the entity */
+        union {null, map<string>} properties = null;
+    }
+
+    /**
+     *  Values are just like objects, except they represent transient data instead of persistent data.
+     *  Values have tags and affect (and are affected by) events.s
+     */
+    record Value {
+        /** universally unique identifier for the value */
+        long uid;
+
+        /** The size of the value in bytes */
+        int size;
+
+        /** The integrity tag associated with this value (Optional) */
+        union {null, IntegrityTag} integrity = null;
+
+        /** The confidentiality tag associated with this value (Optional) */
+        union {null, ConfidentialityTag} confidentiality = null;
+
+        /** Arbitrary key, value pairs describing the entity */
+        union {null, map<string>} properties = null;
+    }
+
+    /**
+     *  Objects, in general, represent data sources and sinks which could include sockets, files,
+     *  memory, and any data in general that can be an input and/or output to an event.
+     *  This record is intended to be abstract i.e., one should not instantiate an Object
+     *  but rather instantiate one of its sub types File, NetFlow, of Memory
+     */
+    record AbstractObject {
+
+        /** Permission bits defined over the object (Optional) */
+        union {null, SHORT} permission = null;
+
+        /**
+        * The timestamp when the object was last modified (Optional).
+        * A timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.
+        */
+        union {null, long} lastTimestampMicros = null;
+
+        /** The source that emitted the object, see InstrumentationSource */
+        InstrumentationSource source;
+
+        /** The integrity tag associated with this value (Optional)*/
+        union {null, IntegrityTag} integrity = null;
+
+        /** The confidentiality tag associated with this value (Optional)*/
+        union {null, ConfidentialityTag} confidentiality = null;
+
+        /** Arbitrary key, value pairs describing the entity */
+        union {null, map<string>} properties = null;
+    }
+
+    /**
+     * Represents a file on the file system. Instantiates an AbstractObject.
+     */
+    record FileObject {
+        /** Universally unique identifier for the object */
+        long uid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The location of the file absolute path or remote url */
+        string url;
+
+        /** The file version incremented every time the file changes */
+        int version = 1;
+
+        /** The file size in bytes (Optional) */
+        union {null, long} size = null;
+    }
+
+    /**
+     * Represents a network flow object. Instantiates an AbstractObject.
+     */
+    record NetFlowObject {
+        /** Universally unique identifier for the object */
+        long uid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The ip address of the source host for this flow */
+        string srcAddress;
+
+        /** The network port on the source host for this flow */
+        int srcPort;
+
+        /** The ip address of the destination host for this flow */
+        string destAddress;
+
+        /** The network port on the destination host for this flow */
+        int destPort;
+    }
+
+    /**
+     * Represents a page in memory. Instantiates an AbstractObject.
+     * TODO: is memory really an object (with permissions and so on) or is it a transient data?
+     */
+    record MemoryObject {
+        /** Universally unique identifier for the object */
+        long uid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The memory page number */
+        long pageNumber;
+
+        /** The location in memory */
+        long memoryAddress;
+    }
+
+    /**
+     * Represents a sensor on the host device. Instantiates an AbstractObject.
+     * This is the most basic representation of a sensor, basically specifying its type only.
+     */
+    record SensorObject {
+        /** Universally unique identifier for the object */
+        long uid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The type of the sensor */
+        SensorType type;
+    }
+
+    /**
+     * A provenance tag defines source dependence on specific data sources (inputs).
+     * A tag identifier is bound to a source and used by the tracking system to
+     * capture dependence on this source input. In terms of the structure of the provenance tag,
+     * this is still a work in progress. We will opt for a simple representation that is expressive
+     * enough to capture all TA1 data but not too complicated.
+     * TODO: the tagID is a long in this version. It can however be an int  for efficiency on-the-wire
+     * especially since tagExpression is comprised of tagIDs.
+     */
+    record ProvenanceTag {
+        /** A unique identifier for a tag expression */
+        long uid;
+
+        /** The tag expression as defined in the tag design doc */
+        string tagExpression;
+    }
+
+   /**
+    * A principal is a local user
+    * TODO: extend for second evaluation to include remote principals
+    * TODO: what happens when the user information changes (are we tracking versions?)
+    * TODO: Authentication mechanisms: are TA1s providing that information and how?
+    */
+   record Principal {
+        /** A unique id for the principal */
+        long uid;
+
+        /** The type of the principal, local by default*/
+        PrincipalType type = "PRINCIPAL_LOCAL";
+
+        /** The operating system id associated with the user */
+        int userId;
+
+        /** The ids of the groups which this user is part of */
+        array<int> groupIds;
+
+        /** The source that emitted the Principal record, see InstrumentationSource */
+        InstrumentationSource source;
+
+        /** Arbitrary key, value pairs describing the entity */
+        union {null, map<string>} properties = null;
+    }
+
+    // ======================================
+    //      EDGE RECORDS
+    // ======================================
+
+    /**
+     * Edges in the CDM only connect the entities and do not have attributes of their own.
+     *  In order to make the streaming efficient, the edge specification does not require
+     *  the objects on both ends every time it is streamed/serialized. Instead, we defined
+     *  the edge to be simple, it has a type and it connects two entities each identified by
+     *  a uid each.
+     * Since the different edge types in the current model do not have different properties
+     *  (actually no properties at all), we do not define the different edges as separate
+     *  records at this time.
+     * For example, when streaming a large number of edges having the same from node, the
+     *  from node in all these edges will be represented using the node id instead of having
+     *  to replicate the full node object on the wire.
+     */
+    record SimpleEdge {
+        /** A unique id of the From entity on the edge */
+        long fromUid;
+
+        /** The id of the To entity on the edge */
+        long toUid;
+
+        /** The type of the edge, see EdgeType */
+        EdgeType type;
+
+        /**
+        * When the edge was created.
+        * Timestamp stores the number of microseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.
+        */
+        long timestamp;
+
+        /** Arbitrary key, value pairs describing the edge */
+        union {null, map<string>} properties = null;
+    }
+
+    // ======================================
+    //      COMPOSITE RECORDS
+    // ======================================
+    /**
+     * A record representing either a vertex or an edge. This is the top level record that allows
+     * us to easily mix the vertices and edges defined above on the wire.
+     */
+    record TCCDMDatum {
+        union {
+            // vertices
+            Subject,
+            Event,
+            Value,
+            NetFlowObject,
+            FileObject,
+            SensorObject,
+            MemoryObject,
+            ProvenanceTag,
+            Principal,
+            // edges
+            SimpleEdge
+        } datum;
+    }
+}

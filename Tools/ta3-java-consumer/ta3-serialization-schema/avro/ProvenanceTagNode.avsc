@@ -1,0 +1,86 @@
+{
+  "type" : "record",
+  "name" : "ProvenanceTagNode",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* A provenance tag defines source dependence on specific data sources (inputs).\n     * A tag identifier is typically bound to a source and used by the tracking system to\n     * capture dependence on this source input.\n     *\n     * ProvenanceTagNode defines one step of provenance for a value\n     * (i.e., one read from a source or write to a sink), a reference\n     * to the previous provenance of the value (if any), and the tag\n     * operation that resulted the tagId of this ProvenanceTagNode",
+  "fields" : [ {
+    "name" : "tagId",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    },
+    "doc" : "Tag ID for this node *"
+  }, {
+    "name" : "flowObject",
+    "type" : [ "null", "UUID" ],
+    "doc" : "* The UUID of the source or sink object associated with this\n         * tag. (Optional)\n         *\n         * This attribute is optional because if the\n         * ProvenanceTagNode is simply joining two existing\n         * provenances (e.g., when two values are added together), there\n         * is no flow object associated with that definition.\n         *",
+    "default" : null
+  }, {
+    "name" : "subject",
+    "type" : "UUID",
+    "doc" : "Subject that is performing the src/sink action *"
+  }, {
+    "name" : "systemCall",
+    "type" : [ "null", "string" ],
+    "doc" : "System call that read/wrote the data *",
+    "default" : null
+  }, {
+    "name" : "programPoint",
+    "type" : [ "null", "string" ],
+    "doc" : "The program point where the event was triggered (e.g., executable and line number), (Optional)",
+    "default" : null
+  }, {
+    "name" : "prevTagId",
+    "type" : [ "null", "UUID" ],
+    "doc" : "The previous tag for this value *",
+    "default" : null
+  }, {
+    "name" : "opcode",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "TagOpCode",
+      "doc" : "* The tag opcode describes the provenance relation i.e., how multiple sources are combined to\n     * produce the output. We identify the following provenance relations",
+      "symbols" : [ "TAG_OP_UNION", "TAG_OP_ENCODE", "TAG_OP_STRONG", "TAG_OP_MEDIUM", "TAG_OP_WEAK" ]
+    } ],
+    "doc" : "Tag operation that resulted in the tagId of this ProvenanceTagNode *",
+    "default" : null
+  }, {
+    "name" : "tagIds",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "UUID"
+    } ],
+    "default" : null
+  }, {
+    "name" : "itag",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "IntegrityTag",
+      "doc" : "* The integrity tag may be used to specify the initial integrity of an entity,\n     * or to endorse its content after performing appropriate checking/sanitization.",
+      "symbols" : [ "INTEGRITY_UNTRUSTED", "INTEGRITY_BENIGN", "INTEGRITY_INVULNERABLE" ]
+    } ],
+    "doc" : "The integrity tag may be used to specify the intial\n         *  integrity of an entity, or to endorse it content after\n         *  performing appropriate checking/sanitization.",
+    "default" : null
+  }, {
+    "name" : "ctag",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "ConfidentialityTag",
+      "doc" : "* The confidentiality tag may be used to specify the initial confidentiality of an entity,\n     * or to declassify its content after performing appropriate checking/sanitization.",
+      "symbols" : [ "CONFIDENTIALITY_SECRET", "CONFIDENTIALITY_SENSITIVE", "CONFIDENTIALITY_PRIVATE", "CONFIDENTIALITY_PUBLIC" ]
+    } ],
+    "doc" : "* The confidentiality tag may be used to specify the initial\n         * confidentiality of an entity, or to declassify its content\n         * after performing appropriate checking/sanitization.",
+    "default" : null
+  }, {
+    "name" : "properties",
+    "type" : [ "null", {
+      "type" : "map",
+      "values" : "string"
+    } ],
+    "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
+    "default" : null,
+    "order" : "ignore"
+  } ]
+}

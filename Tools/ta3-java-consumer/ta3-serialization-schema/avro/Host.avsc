@@ -1,0 +1,83 @@
+{
+  "type" : "record",
+  "name" : "Host",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* Hosts represent a host/machine/node in a network.",
+  "fields" : [ {
+    "name" : "uuid",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    },
+    "doc" : "universally unique identifier for the host"
+  }, {
+    "name" : "hostName",
+    "type" : "string",
+    "doc" : "hostname or machine name"
+  }, {
+    "name" : "ta1Version",
+    "type" : "string",
+    "doc" : "* For debugging and analysis, the TA2 and TA3 teams would\n         * like to have the TA1 version number included in the CDM\n         * output. This string gets populated from the contents of a\n         * well known file, either /etc/tc-version or\n         * \\Windows\\System32\\drivers\\etc\\tc-version. This file\n         * contains a date timestamp (down to second granularity) and\n         * hash (that incorporates all components of the system\n         * including configs and translator)."
+  }, {
+    "name" : "hostIdentifiers",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "HostIdentifier",
+        "doc" : "Host identifier, such as serial number, IMEI number",
+        "fields" : [ {
+          "name" : "idType",
+          "type" : "string"
+        }, {
+          "name" : "idValue",
+          "type" : "string"
+        } ]
+      }
+    } ],
+    "doc" : "list of identifiers, such as serial number, IMEI number",
+    "default" : null
+  }, {
+    "name" : "osDetails",
+    "type" : [ "null", "string" ],
+    "doc" : "OS level details revealed by tools such as uname -a",
+    "default" : null
+  }, {
+    "name" : "hostType",
+    "type" : {
+      "type" : "enum",
+      "name" : "HostType",
+      "doc" : "* HostType enumerates the host roles or device types",
+      "symbols" : [ "HOST_MOBILE", "HOST_SERVER", "HOST_DESKTOP", "HOST_OTHER" ]
+    },
+    "doc" : "host's role or device type, such as mobile, server, desktop"
+  }, {
+    "name" : "interfaces",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "Interface",
+        "doc" : "Interface name and addresses",
+        "fields" : [ {
+          "name" : "name",
+          "type" : "string"
+        }, {
+          "name" : "macAddress",
+          "type" : "string"
+        }, {
+          "name" : "ipAddresses",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "string"
+          } ],
+          "default" : null
+        } ]
+      }
+    } ],
+    "doc" : "names and addresses of network interfaces",
+    "default" : null
+  } ]
+}

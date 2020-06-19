@@ -1,0 +1,66 @@
+{
+  "type" : "record",
+  "name" : "MemoryObject",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* Represents a page in memory. Instantiates an AbstractObject.\n     * TODO: is memory really an object (with permissions and so on) or is it a transient data?",
+  "fields" : [ {
+    "name" : "uuid",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    },
+    "doc" : "Universally unique identifier for the object"
+  }, {
+    "name" : "baseObject",
+    "type" : {
+      "type" : "record",
+      "name" : "AbstractObject",
+      "doc" : "*  Objects, in general, represent data sources and sinks which\n     *  could include sockets, files, memory, and any data in general\n     *  that can be an input and/or output to an event.  This record\n     *  is intended to be abstract i.e., one should not instantiate an\n     *  Object but rather instantiate one of its sub types (ie,\n     *  encapsulating records) FileObject, UnnamedPipeObject,\n     *  RegistryKeyObject, NetFlowObject, MemoryObject, or\n     *  SrcSinkObject.",
+      "fields" : [ {
+        "name" : "permission",
+        "type" : [ "null", {
+          "type" : "fixed",
+          "name" : "SHORT",
+          "size" : 2
+        } ],
+        "doc" : "Permission bits defined over the object (Optional)",
+        "default" : null
+      }, {
+        "name" : "epoch",
+        "type" : [ "null", "int" ],
+        "doc" : "* Used to track when an object is deleted and a new one is\n         * created with the same identifier. This is useful for when\n         * UUIDs are based on something not likely to be unique, such\n         * as file path.",
+        "default" : null
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
+        "default" : null,
+        "order" : "ignore"
+      } ]
+    },
+    "doc" : "The base object attributes"
+  }, {
+    "name" : "memoryAddress",
+    "type" : "long",
+    "doc" : "The memory address"
+  }, {
+    "name" : "pageNumber",
+    "type" : [ "null", "long" ],
+    "doc" : "(Optional) decomposed memory addressed into pageNumber and pageOffset",
+    "default" : null
+  }, {
+    "name" : "pageOffset",
+    "type" : [ "null", "long" ],
+    "default" : null
+  }, {
+    "name" : "size",
+    "type" : [ "null", "long" ],
+    "doc" : "The entry size in bytes (Optional)",
+    "default" : null
+  } ]
+}

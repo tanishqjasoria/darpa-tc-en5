@@ -1,0 +1,13 @@
+{
+  "type" : "record",
+  "name" : "HostIdentifier",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "Host identifier, such as serial number, IMEI number",
+  "fields" : [ {
+    "name" : "idType",
+    "type" : "string"
+  }, {
+    "name" : "idValue",
+    "type" : "string"
+  } ]
+}

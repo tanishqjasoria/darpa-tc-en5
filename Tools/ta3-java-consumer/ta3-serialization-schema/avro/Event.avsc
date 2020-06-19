@@ -1,0 +1,213 @@
+{
+  "type" : "record",
+  "name" : "Event",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* Events represent actions executed by subjects on data objects\n     * or other subjects.  Events are generally system calls, but\n     * could also include function calls, instruction executions, or\n     * even more abstract notions. Events are the core entity in the\n     * data model and they are the main abstraction for representing\n     * information flow between data objects and subjects.",
+  "fields" : [ {
+    "name" : "uuid",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    },
+    "doc" : "A universally unique identifier for the event"
+  }, {
+    "name" : "sequence",
+    "type" : [ "null", "long" ],
+    "doc" : "* A logical sequence number for ordering events relative to\n         * each other within a subject's execution context\n         *\n         * This attribute is only optional for inferred events, such\n         * as an object's attribute change that was observed without\n         * an explicit event or system call.",
+    "default" : null
+  }, {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "EventType",
+      "doc" : "* EventType enumerates the most common system calls. Since there\n     * are hundreds of possible system calls, enumerating all of them\n     * and managing the list across OS versions is a\n     * challenge. EVENT_OTHER is the catch all for events not enumerated here. Any events\n     * that are expected to be of importance, should be included in this list.",
+      "symbols" : [ "EVENT_ACCEPT", "EVENT_ADD_OBJECT_ATTRIBUTE", "EVENT_BIND", "EVENT_BLIND", "EVENT_BOOT", "EVENT_CHANGE_PRINCIPAL", "EVENT_CHECK_FILE_ATTRIBUTES", "EVENT_CLONE", "EVENT_CLOSE", "EVENT_CONNECT", "EVENT_CORRELATION", "EVENT_CREATE_OBJECT", "EVENT_CREATE_THREAD", "EVENT_DUP", "EVENT_EXECUTE", "EVENT_EXIT", "EVENT_FLOWS_TO", "EVENT_FCNTL", "EVENT_FORK", "EVENT_LINK", "EVENT_LOADLIBRARY", "EVENT_LOGCLEAR", "EVENT_LOGIN", "EVENT_LOGOUT", "EVENT_LSEEK", "EVENT_MMAP", "EVENT_MODIFY_FILE_ATTRIBUTES", "EVENT_MODIFY_PROCESS", "EVENT_MOUNT", "EVENT_MPROTECT", "EVENT_OPEN", "EVENT_OTHER", "EVENT_READ", "EVENT_READ_SOCKET_PARAMS", "EVENT_RECVFROM", "EVENT_RECVMSG", "EVENT_RENAME", "EVENT_SENDTO", "EVENT_SENDMSG", "EVENT_SERVICEINSTALL", "EVENT_SHM", "EVENT_SIGNAL", "EVENT_STARTSERVICE", "EVENT_TRUNCATE", "EVENT_UMOUNT", "EVENT_UNIT", "EVENT_UNLINK", "EVENT_UPDATE", "EVENT_WAIT", "EVENT_WRITE", "EVENT_WRITE_SOCKET_PARAMS", "EVENT_TEE", "EVENT_SPLICE", "EVENT_VMSPLICE", "EVENT_INIT_MODULE", "EVENT_FINIT_MODULE" ]
+    },
+    "doc" : "The type of the event"
+  }, {
+    "name" : "threadId",
+    "type" : [ "null", "int" ],
+    "doc" : "* The thread id to which this event belongs.  Required for\n         * all events, except the EVENT_ADD_OBJECT_ATTRIBUTE and\n         * EVENT_FLOWS_TO event.",
+    "default" : null
+  }, {
+    "name" : "subject",
+    "type" : [ "null", "UUID" ],
+    "doc" : "* UUID of Subject that generated this event.  The subject is\n         * required for all events, except the\n         * EVENT_ADD_OBJECT_ATTRIBUTE and EVENT_FLOWS_TO event.",
+    "default" : null
+  }, {
+    "name" : "predicateObject",
+    "type" : [ "null", "UUID" ],
+    "doc" : "* UUID of Object/Subject this event acts on. For events that\n         * have two arguments, this attribute contains the first\n         * argument (following the argument order in the underlying\n         * system call). This attribute is optional because it may not\n         * be relevant for some events.",
+    "default" : null
+  }, {
+    "name" : "predicateObjectPath",
+    "type" : [ "null", "string" ],
+    "doc" : "If applicable, the object's absolute file path (Optional)",
+    "default" : null
+  }, {
+    "name" : "predicateObject2",
+    "type" : [ "null", "UUID" ],
+    "doc" : "* Optional UUID of Object/Subject for events that take two\n         * arguments (e.g., link, rename, etc). This attribute\n         * contains the second argument (following the argument order\n         * in the underlying system call).",
+    "default" : null
+  }, {
+    "name" : "predicateObject2Path",
+    "type" : [ "null", "string" ],
+    "doc" : "If applicable, the second object's absolute file path (Optional)",
+    "default" : null
+  }, {
+    "name" : "timestampNanos",
+    "type" : "long",
+    "doc" : "* The time at which the event occurred. Timestamps allow\n         * reasoning about order of events on a host when the same\n         * clock is used. A timestamp stores the number of nanoseconds\n         * from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * TODO: When different clocks are used on a host or across\n         * hosts, we need to also define a clock source\n         *\n         * NOTE: When an object update is inferred without an explicit\n         * system call event, TA1s may not have an accurate timestamp\n         * of when the object was updated. In that case, the timestamp\n         * used in the update event is the same as the timestamp used\n         * in the next system call event that uses the updated object."
+  }, {
+    "name" : "names",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "* Event names (Optional). Multiple names may be provided to\n         * allow for reporting many parameterless system calls in a\n         * single Event record.",
+    "default" : null
+  }, {
+    "name" : "parameters",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : {
+        "type" : "record",
+        "name" : "Value",
+        "doc" : "* Values represent transient data, mainly parameters to\n     * events. Values are created and used once within an event's\n     * execution and are relevant mainly during fine-grained tracking\n     * (such as with tag/taint propagation).  Values have tags\n     * describing their provenance. Sometimes the actual value's value\n     * is reported in addition to the value's metadata\n     *\n     * The size of the value is the number of elements of type\n     * valueDataType. This should be -1 for primitive and complex\n     * types.  For arrays, the size is the array length. i.e., if\n     * size >= 0, then this value is an array.  A complex value (such as\n     * an object) can contain other values (primitives or other\n     * complex values) within it, as components.\n     *\n     * Examples: <br>\n     *\n     * an integer will have size=-1 and valueDataType=INT, and\n     * valueBytes.length=4 bytes <br>\n     *\n     * an int[4] will have size=4 and valueDataType=INT, and\n     * valueBytes.length=16 bytes (4*4) <br>\n     *\n     * a string s=\"abc\" has size=3 and valueDataType=CHAR, and\n     * valueBytes.length=12 bytes (UTF32_BE encoding; 4 bytes per\n     * char) <br>\n     *\n     * an MyClass obj has size=-1, valueDataType=COMPLEX,\n     * runtimeDataType=\"MyClass\", valueBytes=<pointer> <br>",
+        "fields" : [ {
+          "name" : "size",
+          "type" : "int",
+          "doc" : "The size of the value: the number of elements of type valueDataType; -1 for non-arrays",
+          "default" : -1
+        }, {
+          "name" : "type",
+          "type" : {
+            "type" : "enum",
+            "name" : "ValueType",
+            "doc" : "* A value type is either source, sink, or control This is for\n     * Event parameters to distinguish source/sink values vs control\n     * parameters (such as a file descriptor).",
+            "symbols" : [ "VALUE_TYPE_SRC", "VALUE_TYPE_SINK", "VALUE_TYPE_CONTROL" ]
+          },
+          "doc" : "The type indicates whether it's a source, sink, or control value"
+        }, {
+          "name" : "valueDataType",
+          "type" : {
+            "type" : "enum",
+            "name" : "ValueDataType",
+            "doc" : "* A value data type is one of the primitive data types. A string is treated as a char array",
+            "symbols" : [ "VALUE_DATA_TYPE_BYTE", "VALUE_DATA_TYPE_BOOL", "VALUE_DATA_TYPE_CHAR", "VALUE_DATA_TYPE_SHORT", "VALUE_DATA_TYPE_INT", "VALUE_DATA_TYPE_FLOAT", "VALUE_DATA_TYPE_LONG", "VALUE_DATA_TYPE_DOUBLE", "VALUE_DATA_TYPE_POINTER32", "VALUE_DATA_TYPE_POINTER64", "VALUE_DATA_TYPE_COMPLEX" ]
+          },
+          "doc" : "The actual datatype of the value elements, e.g., int, double, byte, etc. (Optional)\n         *  Strings are treated as char[] so type=CHAR\n         *  String[] is a COMPLEX value whose components are the string values (each modeled as a char[])\n         *  Complex composite objects comprising of primitive values use the COMPLEX type"
+        }, {
+          "name" : "isNull",
+          "type" : "boolean",
+          "doc" : "Whether this value is null, needed to indicate null objects (default: false)",
+          "default" : false
+        }, {
+          "name" : "name",
+          "type" : [ "null", "string" ],
+          "doc" : "the name of the Value, string. (Optional)",
+          "default" : null
+        }, {
+          "name" : "runtimeDataType",
+          "type" : [ "null", "string" ],
+          "doc" : "The runtime data type of the value (Optional); For example, an object of dataType=COMPLEX, can have\n         *  a runtime data type of say \"MyClass\"",
+          "default" : null
+        }, {
+          "name" : "valueBytes",
+          "type" : [ "null", "bytes" ],
+          "doc" : "* The actual bytes of the value in Big Endian format, e.g.,\n         * an int is converted to a 4 byte buffer (Optional)\n         *\n         * Strings are represented as an array of UTF32_BE encoded\n         * characters (i.e., 4 bytes per char)",
+          "default" : null
+        }, {
+          "name" : "provenance",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "ProvenanceAssertion",
+              "doc" : "* An assertion about the provenance of information",
+              "fields" : [ {
+                "name" : "asserter",
+                "type" : "UUID",
+                "doc" : "Which Subject is making this assertion?"
+              }, {
+                "name" : "sources",
+                "type" : [ "null", {
+                  "type" : "array",
+                  "items" : "UUID"
+                } ],
+                "doc" : "Object(s) that this Value's data came from.",
+                "default" : null
+              }, {
+                "name" : "provenance",
+                "type" : [ "null", {
+                  "type" : "array",
+                  "items" : "ProvenanceAssertion"
+                } ],
+                "doc" : "* Further provenance assertions within this assertion.\n\t * For example, to describe a situation in which X asserts that\n\t * Y asserts that Z asserts that V came from {p,q}:\n\t *\n\t * ```\n\t * Event {\n\t *   subject = X,\n\t *   parameters = [\n\t *     Value (V) {\n\t *       provenance = [\n\t *         ProvenanceAssertion {\n\t *           asserter = UUID of X,\n\t *           sources = [ UUID of p, UUID of q ],\n\t *           provenance = [\n\t *             ProvenanceAssertion {\n\t *               asserter = UUID of Y,\n\t *               provenance = [\n\t *                 ProvenanceAssertion {\n\t *                   asserter = UUID of Z,\n\t *                 },\n\t *               ],\n\t *             },\n\t *           ],\n\t *         },\n\t *       ],\n\t *     },\n\t *   ],\n\t * }\n\t * ```\n\t * Z should have a provenance assertion\n\t * e.g.,\n         * \"X asserts that Y asserts that Z comes from {p,q}\".",
+                "default" : null
+              } ]
+            }
+          } ],
+          "doc" : "* Assertions about the provenance of this value\n         * (e.g., the file that data is claimed to come from).\n         *\n         * This is a direct assertion about provenance for systems that don't\n         * use tags to track data flows.",
+          "default" : null
+        }, {
+          "name" : "tag",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "TagRunLengthTuple",
+              "doc" : "* This record is a single tuple in a run length encoding of tags",
+              "fields" : [ {
+                "name" : "numValueElements",
+                "type" : "int",
+                "default" : 0
+              }, {
+                "name" : "tagId",
+                "type" : "UUID"
+              } ]
+            }
+          } ],
+          "doc" : "* The value's tag expression describing its provenance (Optional)\n         * Since value could be an array, the tag can use run length encoding if needed.",
+          "default" : null
+        }, {
+          "name" : "components",
+          "type" : [ "null", {
+            "type" : "array",
+            "items" : "Value"
+          } ],
+          "doc" : "A complex value might comprise other component values if needed (Optional)",
+          "default" : null
+        } ]
+      }
+    } ],
+    "doc" : "Event parameters represented as values, see Value (Optional)",
+    "default" : null
+  }, {
+    "name" : "location",
+    "type" : [ "null", "long" ],
+    "doc" : "Location refers to the location of the data affecting the event\n         *  (e.g., the read offset in the file for the read system call event). (Optional)",
+    "default" : null
+  }, {
+    "name" : "size",
+    "type" : [ "null", "long" ],
+    "doc" : "Size refers to the size of the data affecting the event\n         *  (e.g., the number of bytes read from the file for the read system call event). (Optional)",
+    "default" : null
+  }, {
+    "name" : "programPoint",
+    "type" : [ "null", "string" ],
+    "doc" : "The program point where the event was triggered (e.g., executable and line number). (Optional)",
+    "default" : null
+  }, {
+    "name" : "properties",
+    "type" : [ "null", {
+      "type" : "map",
+      "values" : "string"
+    } ],
+    "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
+    "default" : null,
+    "order" : "ignore"
+  } ]
+}

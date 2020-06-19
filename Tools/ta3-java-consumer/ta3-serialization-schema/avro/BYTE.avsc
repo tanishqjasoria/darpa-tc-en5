@@ -1,0 +1,6 @@
+{
+  "type" : "fixed",
+  "name" : "BYTE",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "size" : 1
+}

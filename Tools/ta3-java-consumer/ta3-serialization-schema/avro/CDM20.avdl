@@ -1,0 +1,1477 @@
+/*
+ * This software delivered to the Government with unlimited rights
+ * pursuant to contract FA8750-C-15-7559.
+ *
+ * ===== TRANSPARENT COMPUTING (TC) COMMON DATA MODEL (CDM) =====
+ *
+ *  The CDM is a property graph (vertices and edges with properties)
+ *  that has additional typing of the vertices and edges to match the
+ *  TC domain. All vertex and edge records are atomic and immutable.
+ *
+ *  The schema is defined using Avro's IDL specification language (see
+ *  http://avro.apache.org/docs/1.8.0/idl.html).  The schema is
+ *  independent of the language bindings used to operate on it.  IDL
+ *  makes it easy and simple to represent the schema. Tools exist to
+ *  map the IDL to a verbose JSON representation (avsc) as well as to
+ *  compiled language-specific objects.  Optional fields are marked
+ *  using the notation union {null, <type>} <fieldName> = null
+ *
+ * CDM Schema version 20 changes:
+ *
+ *    - Add UnknownProvenanceNode for commmunicating a Value (of an
+ *      Event) has unknown provenance.
+ *
+ *    - Add ta1Version field to the Host record.
+ *
+ *    - Add SOURCE_PVM_CADETS to InstrumentationSource
+ *
+ *    - Add HOST_OTHER to HostType and SUBJECT_OTHER to SubjectType
+ *
+ *    - Add initTcpSeqNum (optional) to NetFlowObject for improved cross-host tracking
+ *
+ *    - Add EVENT_TEE, EVENT_SPLICE, EVENT_VMSPLICE, EVENT_INIT_MODULE, EVENT_FINIT_MODULE
+ *
+ * CDM Schema version 1.9 changes: see ./CDM19.avdl
+ * CDM Schema version 1.8 changes: see ./CDM18.avdl
+ * CDM Schema version 1.7 changes: see ./CDM17.avdl
+ * CDM Schema version 1.6 changes: see ./CDM16.avdl
+ * CDM Schema version 1.5 changes: see ./CDM15.avdl
+ * CDM Schema version 1.4 changes: see ./CDM14.avdl
+ * CDM Schema version 1.3 changes: see ./CDM13.avdl
+ * CDM Schema version 1.2 changes: see ./CDM12.avdl
+ * CDM Schema version 1.1 changes: see ./CDM11.avdl
+ * CDM Schema version 1.0 changes: see ./CDM10.avdl
+ * CDM Schema version 0.9 changes: see ./CDM09.avdl
+ * CDM Schema version 0.8 changes: see ./CDM08.avdl
+ * CDM Schema version 0.7 changes: see ./CDM07.avdl
+ * CDM Schema version 0.6 changes: see ./CDM06.avdl
+ *
+ * USAGE:
+ *  To convert this IDL to avsc which automatically creates the avsc files under avro/
+ *  change to the project base directory and
+ *     %  mvn clean exec:java
+ *
+ *  To manually convert this to avsc:
+ *     %  cd avro/
+ *     %  java -jar avro-tools-1.8.0.jar idl2schemata CDM.avdl .
+ *
+ * NOTES:
+ *   - Avro 1.8.0 added support for data and timestamps using logical types
+ *     see https://issues.apache.org/jira/browse/AVRO-739
+ *     while this is currently supported in the avsc spec, it is not yet in avdl
+ *     so here we are using longs for timestamps
+ *
+ *
+ * STANDARDIZATION NOTES:
+ *
+ *   - Strings. All fields that are of type 'string' MUST be stored
+ *     as-is (or as received by the system publishing) with no
+ *     additional escaping or quoting.
+ */
+
+@namespace("com.bbn.tc.schema.avro.cdm20")
+protocol TCCDMDataProtocol { // protocol here means a wrapper
+
+    // ======================================
+    //      FIXED SIZE TYPES
+    // ======================================
+
+    fixed BYTE(1);
+    fixed SHORT(2);
+
+    /**
+     * A host MUST NOT reuse UUIDs at all within their system, even
+     * across restarts, and definitely not for 2 distinct objects
+     */
+    fixed UUID(16);
+
+    // ======================================
+    //      ENUMS
+    // ======================================
+
+    /**
+     *
+     */
+    enum RecordType {
+        RECORD_HOST,
+        RECORD_PRINCIPAL,
+        RECORD_PROVENANCE_TAG_NODE,
+        RECORD_UNKNOWN_PROVENANCE_NODE,
+        RECORD_SUBJECT,
+        RECORD_FILE_OBJECT,
+        RECORD_IPC_OBJECT,
+        RECORD_REGISTRY_KEY_OBJECT,
+        RECORD_PACKET_SOCKET_OBJECT,
+        RECORD_NET_FLOW_OBJECT,
+        RECORD_MEMORY_OBJECT,
+        RECORD_SRC_SINK_OBJECT,
+        RECORD_EVENT,
+        RECORD_UNIT_DEPENDENCY,
+        RECORD_TIME_MARKER,
+        RECORD_END_MARKER
+    }
+
+    /**
+     * HostType enumerates the host roles or device types
+     */
+    enum HostType {
+        HOST_MOBILE,
+        HOST_SERVER,
+        HOST_DESKTOP,
+        HOST_OTHER
+    }
+
+    /**
+     * SubjectType enumerates the types of execution contexts supported.
+     *
+     * SUBJECT_PROCESS,    process
+     * SUBJECT_THREAD,     thread within a process
+     * SUBJECT_UNIT        so far we only know of TRACE BEEP using this
+     */
+    enum SubjectType {
+        SUBJECT_PROCESS,
+        SUBJECT_THREAD,
+        SUBJECT_UNIT,
+        SUBJECT_BASIC_BLOCK,
+        SUBJECT_OTHER
+    }
+
+    /**
+     * Windows allows Subjects (processes) to have the following
+     * enumerated privilege levels.
+     */
+    enum PrivilegeLevel {
+        LIMITED,
+        ELEVATED,
+        FULL
+    }
+
+    /**
+     * There are many types of sources such as sensors.  The type of a
+     * sensor could be base (close to hardware) or composite.  This is
+     * mostly (only?) applicable to the Android platform.  See
+     * https://source.android.com/devices/sensors/index.html for
+     * details.
+     */
+    enum SrcSinkType {
+        // base sensors
+        SRCSINK_ACCELEROMETER,
+        SRCSINK_TEMPERATURE,
+        SRCSINK_GYROSCOPE,
+        SRCSINK_MAGNETIC_FIELD,
+        SRCSINK_HEART_RATE,
+        SRCSINK_LIGHT,
+        SRCSINK_PROXIMITY,
+        SRCSINK_PRESSURE,
+        SRCSINK_RELATIVE_HUMIDITY,
+
+        // composite sensors
+        SRCSINK_LINEAR_ACCELERATION,
+        SRCSINK_MOTION,
+        SRCSINK_STEP_DETECTOR,
+        SRCSINK_STEP_COUNTER,
+        SRCSINK_TILT_DETECTOR,
+        SRCSINK_ROTATION_VECTOR,
+        SRCSINK_GRAVITY,
+        SRCSINK_GEOMAGNETIC_ROTATION_VECTOR,
+
+        // temporary 
+        SRCSINK_GPS,
+        SRCSINK_AUDIO,
+
+        // Environment variables and properties
+        SRCSINK_SYSTEM_PROPERTY,
+        SRCSINK_ENV_VARIABLE,
+
+        // Android Services
+        SRCSINK_ACCESSIBILITY_SERVICE,
+        SRCSINK_ACTIVITY_MANAGEMENT,
+        SRCSINK_ALARM_SERVICE,
+        SRCSINK_ANDROID_AUTO,
+        SRCSINK_ANDROID_RADIO,
+        SRCSINK_ANDROID_TV,
+        SRCSINK_ANDROID_VR,
+        SRCSINK_AUDIO_IO,
+        SRCSINK_AUTOFILL,
+        SRCSINK_BACKUP_MANAGER,
+        SRCSINK_BINDER,
+        SRCSINK_BLUETOOTH,
+        SRCSINK_BOOT_EVENT,
+        SRCSINK_BROADCAST_RECEIVER_MANAGEMENT,
+        SRCSINK_CAMERA,
+        SRCSINK_CLIPBOARD,
+        SRCSINK_COMPANION_DEVICE,
+        SRCSINK_COMPONENT_MANAGEMENT,
+        SRCSINK_CONTENT_PROVIDER,
+        SRCSINK_CONTENT_PROVIDER_MANAGEMENT,
+        SRCSINK_DATABASE,
+        SRCSINK_DEVICE_ADMIN,
+        SRCSINK_DEVICE_SEARCH,
+        SRCSINK_DEVICE_USER,
+        SRCSINK_DISPLAY,
+        SRCSINK_DROPBOX,
+        SRCSINK_EMAIL,
+        SRCSINK_EXPERIMENTAL,
+        SRCSINK_FILE,
+        SRCSINK_FILE_SYSTEM,
+        SRCSINK_FILE_SYSTEM_MANAGEMENT,
+        SRCSINK_FINGERPRINT,
+        SRCSINK_FLASHLIGHT,
+        SRCSINK_GATEKEEPER,
+        SRCSINK_HDMI,
+        SRCSINK_IDLE_DOCK_SCREEN,
+        SRCSINK_IMS,
+        SRCSINK_INFRARED,
+        SRCSINK_INSTALLED_PACKAGES,
+        SRCSINK_JSSE_TRUST_MANAGER,
+        SRCSINK_KEYCHAIN,
+        SRCSINK_KEYGUARD,
+        SRCSINK_LOCATION,
+        SRCSINK_LOWPAN,
+        SRCSINK_MACHINE_LEARNING,
+        SRCSINK_MBMS,
+        SRCSINK_MEDIA,
+        SRCSINK_MEDIA_CAPTURE,
+        SRCSINK_MEDIA_LOCAL_MANAGEMENT,
+        SRCSINK_MEDIA_LOCAL_PLAYBACK,
+        SRCSINK_MEDIA_NETWORK_CONNECTION,
+        SRCSINK_MEDIA_REMOTE_PLAYBACK,
+        SRCSINK_MIDI,
+        SRCSINK_NATIVE,
+        SRCSINK_NETWORK,
+        SRCSINK_NETWORK_MANAGEMENT,
+        SRCSINK_NFC,
+        SRCSINK_NOTIFICATION,
+        SRCSINK_OVERLAY_MANAGER,
+        SRCSINK_PAC_PROXY,
+        SRCSINK_PERMISSIONS,
+        SRCSINK_PERSISTANT_DATA,
+        SRCSINK_POSIX,
+        SRCSINK_POWER_MANAGEMENT,
+        SRCSINK_PRINT_SERVICE,
+        SRCSINK_PROCESS_MANAGEMENT,
+        SRCSINK_QUICK_SETTINGS,
+        SRCSINK_RECEIVER_MANAGEMENT,
+        SRCSINK_RCS,
+        SRCSINK_RPC,
+        SRCSINK_SCREEN_AUDIO_CAPTURE,
+        SRCSINK_SERIAL_PORT,
+        SRCSINK_SERVICE_CONNECTION,
+        SRCSINK_SERVICE_MANAGEMENT,
+        SRCSINK_SHORTCUTS,
+        SRCSINK_SMS_MMS,
+        SRCSINK_SPEECH_INTERACTION,
+        SRCSINK_STATUS_BAR,
+        SRCSINK_SYNC_FRAMEWORK,
+        SRCSINK_SYSTEM_UPDATE,
+        SRCSINK_TASK_STACK,
+        SRCSINK_TELEPHONY,
+        SRCSINK_TEST,
+        SRCSINK_TEXT_SERVICES,
+        SRCSINK_THREADING,
+        SRCSINK_TIME_EVENT,  
+        SRCSINK_UI,
+        SRCSINK_UID_EVENT,
+        SRCSINK_UI_AUTOMATION,
+        SRCSINK_UI_MODE,
+        SRCSINK_UI_RPC,
+        SRCSINK_USAGE_STATS,
+        SRCSINK_USB,
+        SRCSINK_USER_ACCOUNTS_MANAGEMENT,
+        SRCSINK_USER_INPUT,
+        SRCSINK_VIBRATOR,
+        SRCSINK_WAKE_LOCK,
+        SRCSINK_WALLPAPER_MANAGER,
+        SRCSINK_WAP,
+        SRCSINK_WEB_BROWSER,
+        SRCSINK_WIDGETS,
+
+        // IPC should only be used for internal IPC instead of network flows
+        // ClearScope might be using this in the interim for flows
+        // Can be a source or a sink
+        SRCSINK_IPC,
+
+        /* Ideally not used, but there are legitimate use cases. For
+         * example, a file is opened before TA1 technology is started.
+         */
+        SRCSINK_UNKNOWN
+    }
+
+    /**
+     * InstrumentationSource identifies the source reporting provenance information.
+     */
+    enum InstrumentationSource {
+        SOURCE_ANDROID_JAVA_CLEARSCOPE,   // from android java instrumentation
+        SOURCE_ANDROID_NATIVE_CLEARSCOPE, // from android's native instrumentation
+        SOURCE_FREEBSD_OPENBSM_TRACE,     // from FreeBSD openBSM
+        SOURCE_FREEBSD_DTRACE_CADETS,     // from CADETS freebsd instrumentation
+        SOURCE_FREEBSD_TESLA_CADETS,      // from CADETS freebsd instrumentation
+        SOURCE_FREEBSD_LOOM_CADETS,       // from CADETS freebsd instrumentation
+        SOURCE_FREEBSD_MACIF_CADETS,      // from CADETS freebsd instrumentation
+        SOURCE_LINUX_SYSCALL_TRACE,       // from Linux Audit's system call records
+        SOURCE_LINUX_NETFILTER_TRACE,     // from Linux Audit's net filter records
+        SOURCE_LINUX_PROC_TRACE,          // from Linux's /proc
+        SOURCE_LINUX_BEEP_TRACE,          // from BEEP instrumentation
+        SOURCE_LINUX_THEIA,               // from the GATech THEIA instrumentation source
+        SOURCE_WINDOWS_DIFT_FAROS,        // from FAROS' DIFT module
+        SOURCE_WINDOWS_PSA_FAROS,         // from FAROS' PSA module
+        SOURCE_WINDOWS_FIVEDIRECTIONS,    // for the fivedirections windows events
+        SOURCE_WINDOWS_MARPLE,            // for MARPLE team's TA1 technology
+        SOURCE_PVM_CADETS                 // for CADETS PVM
+    }
+
+    /**
+     * PrincipalType identifies the type of user: either local to the
+     * host, or remote users/systems.
+     */
+    enum PrincipalType {
+        PRINCIPAL_LOCAL,            // a principal local on the host
+        PRINCIPAL_REMOTE            // a remote principal
+    }
+
+    /**
+     * EventType enumerates the most common system calls. Since there
+     * are hundreds of possible system calls, enumerating all of them
+     * and managing the list across OS versions is a
+     * challenge. EVENT_OTHER is the catch all for events not enumerated here. Any events
+     * that are expected to be of importance, should be included in this list.
+     */
+    enum EventType {
+
+        /* Object -> Subject */
+        EVENT_ACCEPT,                 // accept a connection on an object
+
+        /* Object1 -> Object2 */
+        EVENT_ADD_OBJECT_ATTRIBUTE,   // add attribute to an object that was incomplete at time of publish
+
+        /* Subject -> Object*/
+        EVENT_BIND,                   // bind to a network endpoint object
+
+        EVENT_BLIND,                  // blind event for a black boxes that are not instrumented
+
+        /* non-directional */
+        EVENT_BOOT,                   // indicates the sytem has booted
+
+        /* Subject -> Object */
+        EVENT_CHANGE_PRINCIPAL,       // change the principal associated with the process
+
+        /* Object -> Subject */
+        EVENT_CHECK_FILE_ATTRIBUTES,  // check the file attributes such as permissions
+
+        /* Subject -> Object */
+        EVENT_CLONE,                  // clone a subject
+
+        /* Subject -> Object */
+        EVENT_CLOSE,                  // close an object
+
+        /* Subject -> Object */
+        EVENT_CONNECT,                // connect to an object
+
+        /* Object -> Object */
+        EVENT_CORRELATION,            // Indicates two objects have a relationship
+
+        /* Subject -> Object */
+        EVENT_CREATE_OBJECT,          // create an object
+
+        /* Subject -> Object */
+        EVENT_CREATE_THREAD,          // create a thread subject
+
+        /* non-directional */
+        EVENT_DUP,                    // duplicate a file descriptor
+
+        /* Subject -> Object */
+        EVENT_EXECUTE,                // execute an object
+
+        /* non-directional */
+        EVENT_EXIT,                   // process exit
+
+        /* Object1 -> Object2 */
+        EVENT_FLOWS_TO,               // links 2 objects with a flow direction; info flows from one object to another
+
+        /* Subject <-> Object (bi-directional) */
+        EVENT_FCNTL,                  // manipulate file descriptor
+
+        /* Subject -> Object */
+        EVENT_FORK,                   // fork a process subject
+
+        /* Object1 -> Object2 */
+        EVENT_LINK,                   // link an object to a new name
+
+        /* Object -> Subject */
+        EVENT_LOADLIBRARY,            // dynamically loading a library
+
+        /* Subject -> Object (?? needs confirmation) */
+        EVENT_LOGCLEAR,               // indicates a system log has been cleared
+
+        /* Subject -> Object (?? needs confirmation) */
+        EVENT_LOGIN,                  // a subject has logged in
+
+        /* Subject -> Object (?? needs confirmation) */
+        EVENT_LOGOUT,                 // a subject has logged out
+
+        /* Subject -> Object */
+        EVENT_LSEEK,                  // reposition read/write file offset
+
+        /* Subject <-> Object (bi-directional) */
+        EVENT_MMAP,                   // memory map an object
+
+        /* Subject -> Object */
+        EVENT_MODIFY_FILE_ATTRIBUTES, // modify the attributes of a file object
+
+        /* Subject -> Object */
+        EVENT_MODIFY_PROCESS,         // for events that modify the process environment (eg, umask, chdir)
+
+        /* Subject -> Object */
+        EVENT_MOUNT,                  // indicates the mounting of a device
+
+        /* Subject -> Object */
+        EVENT_MPROTECT,               // change permissions of a memory object
+
+        /* Subject -> Object */
+        EVENT_OPEN,                   // open an object
+
+        /* Subject <-> Object (bi-directional only because it's a catch-all) */
+        EVENT_OTHER,                  // some other event not enumerated in CDM
+
+        /* Object -> Subject */
+        EVENT_READ,                   // read from an object (file or socket)
+
+        /* Object -> Subject */
+        EVENT_READ_SOCKET_PARAMS,     // read parameters of a socket
+
+        /* Object -> Subject */
+        EVENT_RECVFROM,               // receive message from a socket
+
+        /* Object -> Subject */
+        EVENT_RECVMSG,                // receive message from a socket
+
+        /* Object1 -> Object2 */
+        EVENT_RENAME,                 // rename an object
+
+        /* Subject -> Object */
+        EVENT_SENDTO,                 // send through socket
+
+        /* Subject -> Object */
+        EVENT_SENDMSG,                // send message through socket
+
+        /* Subject -> Object */
+        EVENT_SERVICEINSTALL,         // install new services (Windows)
+
+        /* Object1 -> Object2 */
+        EVENT_SHM,                    // share memory between processes
+
+        /* Subject -> Object */
+        EVENT_SIGNAL,                 // signal another subject
+
+        /* Subject -> Object */
+        EVENT_STARTSERVICE,           // indicates a service has started
+
+        /* Subject -> Object */
+        EVENT_TRUNCATE,               // truncate an object
+
+        /* Subject -> Object */
+        EVENT_UMOUNT,                 // indicates the unmounting of a device
+
+        /* Subject -> Object */
+        EVENT_UNIT,                   // create a BEEP unit
+
+        /* Subject -> Object */
+        EVENT_UNLINK,                 // unlink a name from an object
+
+        /* Object1 -> Object2 */
+        EVENT_UPDATE,                 // update an object
+
+        /* Object -> Subject */
+        EVENT_WAIT,                   // wait on another subject
+
+        /* Subject -> Object */
+        EVENT_WRITE,                  // write to an object (file or socket)
+
+        /* Subject -> Object */
+        EVENT_WRITE_SOCKET_PARAMS,    // write parameters of a socket
+
+        /* Object1 -> Object2 */
+        EVENT_TEE,                    // Transfer data between two pipes
+
+        /* Object1 -> Object2 */
+        EVENT_SPLICE,                 // Transfer data between two pipes or a pipe and a file
+
+        /* Subject -> Object */
+        EVENT_VMSPLICE,               // Transfer data from memory to a pipe
+        
+        /* Subject -> Object */
+        EVENT_INIT_MODULE,            // Load a module from memory
+
+        /* Subject -> Object */
+        EVENT_FINIT_MODULE            // Load a module from a file        
+    }
+
+    /**
+     * These types enumerate the types of FileObjects
+     */
+    enum FileObjectType {
+        FILE_OBJECT_BLOCK,       // block special file
+        FILE_OBJECT_CHAR,        // character special file
+        FILE_OBJECT_DIR,         // directory
+        FILE_OBJECT_FILE,        // regular file
+        FILE_OBJECT_LINK,        // link
+        FILE_OBJECT_PEFILE,      // PE file
+        FILE_OBJECT_UNIX_SOCKET  // UNIX socket
+    }
+
+    /**
+     * These types enumerate the types of IpcObjects
+     */
+    enum IpcObjectType {
+        IPC_OBJECT_PIPE_NAMED,
+        IPC_OBJECT_PIPE_UNNAMED,
+        IPC_OBJECT_SOCKET_ABSTRACT,
+        IPC_OBJECT_SOCKET_PAIR,
+        IPC_OBJECT_SOCKET_PATHNAME,
+        IPC_OBJECT_SOCKET_UNNAMED,
+        IPC_OBJECT_WINDOWS_ALPC,
+        IPC_OBJECT_WINDOWS_MAILSLOT,
+        IPC_OBJECT_SOCKET_NETLINK
+    }
+
+    /**
+     * A value type is either source, sink, or control This is for
+     * Event parameters to distinguish source/sink values vs control
+     * parameters (such as a file descriptor).
+     */
+    enum ValueType {
+        VALUE_TYPE_SRC,    // A source value to the event
+        VALUE_TYPE_SINK,   // A sink value from the event
+        VALUE_TYPE_CONTROL // A control value for the event
+    }
+
+    /**
+     * A value data type is one of the primitive data types. A string is treated as a char array
+     */
+    enum ValueDataType {
+        VALUE_DATA_TYPE_BYTE,      // 8-bit
+        VALUE_DATA_TYPE_BOOL,      // 8-bit, TRUE=1, FALSE=0
+        VALUE_DATA_TYPE_CHAR,      // 16-bit unicode char
+        VALUE_DATA_TYPE_SHORT,     // 16-bit signed integer value
+        VALUE_DATA_TYPE_INT,       // 32-bit signed integer value
+        VALUE_DATA_TYPE_FLOAT,     // 32-bit floating point value
+        VALUE_DATA_TYPE_LONG,      // 64-bit signed inter value
+        VALUE_DATA_TYPE_DOUBLE,    // 64-bit double-precision floating point value
+        VALUE_DATA_TYPE_POINTER32, // 32-bit pointer value
+        VALUE_DATA_TYPE_POINTER64, // 64-bit pointer value
+        VALUE_DATA_TYPE_COMPLEX    // everything else that is not a primitive data type
+    }
+
+    /**
+     * The tag opcode describes the provenance relation i.e., how multiple sources are combined to
+     * produce the output. We identify the following provenance relations
+     */
+    enum TagOpCode {
+        TAG_OP_UNION,  // the output is the union of its inputs
+        TAG_OP_ENCODE, // the output is some encoding of the input
+        TAG_OP_STRONG, // this is more qualitative (coarse) saying there is strong dependence
+        TAG_OP_MEDIUM, // this is more qualitative (coarse) saying there is medium dependence
+        TAG_OP_WEAK    // this is more qualitative (coarse) saying there is weak   dependence
+    }
+
+    /**
+     * The integrity tag may be used to specify the initial integrity of an entity,
+     * or to endorse its content after performing appropriate checking/sanitization.
+     */
+    enum IntegrityTag {
+        INTEGRITY_UNTRUSTED,
+        INTEGRITY_BENIGN,
+        INTEGRITY_INVULNERABLE
+    }
+
+    /**
+     * The confidentiality tag may be used to specify the initial confidentiality of an entity,
+     * or to declassify its content after performing appropriate checking/sanitization.
+     */
+    enum ConfidentialityTag {
+        CONFIDENTIALITY_SECRET,
+        CONFIDENTIALITY_SENSITIVE,
+        CONFIDENTIALITY_PRIVATE,
+        CONFIDENTIALITY_PUBLIC
+    }
+
+    /** Cryptographich hash types */
+    enum CryptoHashType {
+        MD5,
+        SHA1,
+        SHA256,
+        SHA512,
+        AUTHENTIHASH,
+        SSDEEP,
+        IMPHASH
+    }
+
+    // ======================================================
+    //      STRUCT RECORDS (used within vertex/edge records)
+    // ======================================================
+
+    /** Host identifier, such as serial number, IMEI number */
+    record HostIdentifier {
+        string idType;      // e.g., serial number, IMEI, etc
+        string idValue;
+    }
+
+    /** Interface name and addresses */
+    record Interface {
+        string name;        // e.g., eth0
+        string macAddress;
+        union {null, array<string>} ipAddresses = null;
+    }
+
+    /**
+     * Hosts represent a host/machine/node in a network.
+     */
+    record Host {
+
+        /** universally unique identifier for the host */
+        UUID uuid;
+
+        /** hostname or machine name */
+        string hostName;
+
+        /**
+         * For debugging and analysis, the TA2 and TA3 teams would
+         * like to have the TA1 version number included in the CDM
+         * output. This string gets populated from the contents of a
+         * well known file, either /etc/tc-version or
+         * \Windows\System32\drivers\etc\tc-version. This file
+         * contains a date timestamp (down to second granularity) and
+         * hash (that incorporates all components of the system
+         * including configs and translator).
+         */
+        string ta1Version;
+
+        /** list of identifiers, such as serial number, IMEI number */
+        union {null, array<HostIdentifier>} hostIdentifiers = null;
+
+        /** OS level details revealed by tools such as uname -a */
+        union {null, string} osDetails = null;
+
+        /** host's role or device type, such as mobile, server, desktop */
+        HostType hostType;
+
+        /** names and addresses of network interfaces */
+        union {null, array<Interface>} interfaces = null;
+    }
+
+    /**
+     * A principal is a local user
+     * TODO: extend to include remote principals
+     * TODO: what happens when the user information changes (are we tracking versions?)
+     * TODO: Authentication mechanisms: are TA1s providing that information and how?
+     */
+    record Principal {
+
+        /** A unique id for the principal */
+        UUID uuid;
+
+        /** The type of the principal, local by default*/
+        PrincipalType type = "PRINCIPAL_LOCAL";
+
+        /** The operating system identifier associated with the user */
+        string userId;
+
+        /** Human-readable string identifier, such as username (Optional) */
+        union {null, string} username = null;
+
+        /** The ids of the groups which this user is part of */
+        union {null, array<string>} groupIds = null;
+
+        /** 
+         * Arbitrary key, value pairs describing the entity.
+         * NOTE: This attribute is meant as a temporary place holder for items that
+         * will become first-class attributes in the next CDM version.
+         */
+        union {null, map<string>} @order("ignore") properties = null;
+    }
+
+    /**
+     * A provenance tag defines source dependence on specific data sources (inputs).
+     * A tag identifier is typically bound to a source and used by the tracking system to
+     * capture dependence on this source input.
+     *
+     * ProvenanceTagNode defines one step of provenance for a value
+     * (i.e., one read from a source or write to a sink), a reference
+     * to the previous provenance of the value (if any), and the tag
+     * operation that resulted the tagId of this ProvenanceTagNode
+     */
+    record ProvenanceTagNode {
+
+        /** Tag ID for this node **/
+        UUID tagId;
+
+        /**
+         * The UUID of the source or sink object associated with this
+         * tag. (Optional)
+         *
+         * This attribute is optional because if the
+         * ProvenanceTagNode is simply joining two existing
+         * provenances (e.g., when two values are added together), there
+         * is no flow object associated with that definition.
+         **/
+        union {null, UUID} flowObject = null;
+
+        /** Subject that is performing the src/sink action **/
+        UUID subject;
+
+        /** System call that read/wrote the data **/
+        union {null, string} systemCall = null;
+
+        /** The program point where the event was triggered (e.g., executable and line number), (Optional) */
+        union {null, string} programPoint = null;
+
+        /** The previous tag for this value **/
+        union {null, UUID} prevTagId = null;
+
+        /** Tag operation that resulted in the tagId of this ProvenanceTagNode **/
+        union {null, TagOpCode} opcode = null;   // The opcode applied to the array of tagIds
+        union {null, array<UUID>} tagIds = null; // The tags that are operated on.  Usually two tags
+
+        /** The integrity tag may be used to specify the intial
+         *  integrity of an entity, or to endorse it content after
+         *  performing appropriate checking/sanitization.
+         */
+        union {null, IntegrityTag} itag = null;
+
+        /**
+         * The confidentiality tag may be used to specify the initial
+         * confidentiality of an entity, or to declassify its content
+         * after performing appropriate checking/sanitization.
+         */
+        union {null, ConfidentialityTag} ctag = null;
+
+        /** 
+         * Arbitrary key, value pairs describing the entity.
+         * NOTE: This attribute is meant as a temporary place holder for items that
+         * will become first-class attributes in the next CDM version.
+         */
+        union {null, map<string>} @order("ignore") properties = null;
+    }
+
+    /**
+     * An UnknownProvenanceNode communicates that a Value (of an
+     * Event) has unknown provenance. This record can be used anywhere
+     * a ProvenanceTagNode can be used. 
+     *
+     * Example use cases from the ClearScope team: During the early
+     * stages of device boot we are not tracking; files are written
+     * during these stages, and when they are later read, we would
+     * like to report the (earliest) provenance as unknown. Also, for
+     * some processes we do not have our full-precision tracking
+     * enabled, and we would like to communicate to the TA2 analyses
+     * that a Value has unknown provenance, but that the value was
+     * generated by a particular program, possibly at a particular
+     * program point.
+     * 
+     * Semantically, if a Value is tagged with an
+     * UnknownProvenanceNode with a Subject, this means that the Value
+     * could have any provenance generated by that Subject up to the
+     * point the UnknownProvnenanceNode was generated.
+     *
+     * If a Value is tagged with an UnknownProvenanceNode with no
+     * subject, it should be conservatively interpreted as meaning the
+     * value could have any "provenance" defined by the system up to
+     * the point the UnknownProvenanceNode was created.
+     */
+    record UnknownProvenanceNode {
+
+        /** Tag ID for this node **/
+        UUID upnTagId;
+
+        /** the subject that generated this UnknownProvenanceNode, optional */
+        union {null, UUID} subject = null;                
+
+        /** The program point where the node was created
+            (e.g., executable and line number), (Optional) */
+        union {null, string} programPoint = null;
+
+        /** 
+         * Arbitrary key, value pairs describing the entity.
+         * NOTE: This attribute is meant as a temporary place holder for items that
+         * will become first-class attributes in the next CDM version.
+         */
+        union {null, map<string>} @order("ignore") properties = null;
+    }
+
+    /**
+     * This record is a single tuple in a run length encoding of tags
+     */
+    record TagRunLengthTuple {
+        int numValueElements = 0;
+        UUID tagId;
+    }
+
+    /**
+     * An assertion about the provenance of information
+     */
+    record ProvenanceAssertion {
+        /** Which Subject is making this assertion? */
+        UUID asserter;
+
+        /** Object(s) that this Value's data came from. */
+        union {null, array<UUID>} sources = null;
+
+        /**
+         * Further provenance assertions within this assertion.
+	 * For example, to describe a situation in which X asserts that
+	 * Y asserts that Z asserts that V came from {p,q}:
+	 *
+	 * ```
+	 * Event {
+	 *   subject = X,
+	 *   parameters = [
+	 *     Value (V) {
+	 *       provenance = [
+	 *         ProvenanceAssertion {
+	 *           asserter = UUID of X,
+	 *           sources = [ UUID of p, UUID of q ],
+	 *           provenance = [
+	 *             ProvenanceAssertion {
+	 *               asserter = UUID of Y,
+	 *               provenance = [
+	 *                 ProvenanceAssertion {
+	 *                   asserter = UUID of Z,
+	 *                 },
+	 *               ],
+	 *             },
+	 *           ],
+	 *         },
+	 *       ],
+	 *     },
+	 *   ],
+	 * }
+	 * ```
+	 * Z should have a provenance assertion
+	 * e.g.,
+         * "X asserts that Y asserts that Z comes from {p,q}".
+         */
+        union {null, array<ProvenanceAssertion>} provenance = null;
+    }
+
+    /**
+     * Values represent transient data, mainly parameters to
+     * events. Values are created and used once within an event's
+     * execution and are relevant mainly during fine-grained tracking
+     * (such as with tag/taint propagation).  Values have tags
+     * describing their provenance. Sometimes the actual value's value
+     * is reported in addition to the value's metadata
+     *
+     * The size of the value is the number of elements of type
+     * valueDataType. This should be -1 for primitive and complex
+     * types.  For arrays, the size is the array length. i.e., if
+     * size >= 0, then this value is an array.  A complex value (such as
+     * an object) can contain other values (primitives or other
+     * complex values) within it, as components.
+     *
+     * Examples: <br>
+     *
+     * an integer will have size=-1 and valueDataType=INT, and
+     * valueBytes.length=4 bytes <br>
+     *
+     * an int[4] will have size=4 and valueDataType=INT, and
+     * valueBytes.length=16 bytes (4*4) <br>
+     *
+     * a string s="abc" has size=3 and valueDataType=CHAR, and
+     * valueBytes.length=12 bytes (UTF32_BE encoding; 4 bytes per
+     * char) <br>
+     *
+     * an MyClass obj has size=-1, valueDataType=COMPLEX,
+     * runtimeDataType="MyClass", valueBytes=<pointer> <br>
+     */
+    record Value {
+        /** The size of the value: the number of elements of type valueDataType; -1 for non-arrays */
+        int size=-1;
+
+        /** The type indicates whether it's a source, sink, or control value */
+        ValueType type;
+
+        /** The actual datatype of the value elements, e.g., int, double, byte, etc. (Optional)
+         *  Strings are treated as char[] so type=CHAR
+         *  String[] is a COMPLEX value whose components are the string values (each modeled as a char[])
+         *  Complex composite objects comprising of primitive values use the COMPLEX type
+         */
+        ValueDataType valueDataType;
+
+        /** Whether this value is null, needed to indicate null objects (default: false) */
+        boolean isNull = false;
+
+        /** the name of the Value, string. (Optional) */
+        union {null, string} name = null;
+
+        /**The runtime data type of the value (Optional); For example, an object of dataType=COMPLEX, can have
+         *  a runtime data type of say "MyClass"
+         */
+        union {null, string} runtimeDataType = null;
+
+        /**
+         * The actual bytes of the value in Big Endian format, e.g.,
+         * an int is converted to a 4 byte buffer (Optional)
+         *
+         * Strings are represented as an array of UTF32_BE encoded
+         * characters (i.e., 4 bytes per char)
+         */
+        union {null, bytes} valueBytes = null;
+
+        /**
+         * Assertions about the provenance of this value
+         * (e.g., the file that data is claimed to come from).
+         *
+         * This is a direct assertion about provenance for systems that don't
+         * use tags to track data flows.
+         */
+        union {null, array<ProvenanceAssertion>} provenance = null;
+
+        /**
+         * The value's tag expression describing its provenance (Optional)
+         * Since value could be an array, the tag can use run length encoding if needed.
+         */
+        union {null, array<TagRunLengthTuple>} tag = null;
+
+        /** A complex value might comprise other component values if needed (Optional) */
+        union {null, array<Value>} components = null;
+    }
+
+    /**
+     * Cryptographic hash records represent one or more cryptographic hashes for
+     * an object, typically, a FileObject.
+     */
+     record CryptographicHash {
+       /** The type of hash used */
+       CryptoHashType type;
+
+       /** The base64 encoded hash value */
+       string hash;
+
+     }
+
+    // ======================================
+    //      VERTEX RECORDS
+    // ======================================
+
+    /**
+     * Subjects represent execution contexts and include mainly threads and processes. They can be more granular and
+     * can represent other execution boundaries such as units and blocks if needed.
+     */
+    record Subject {
+
+        /** universally unique identifier for the subject */
+        UUID uuid;
+
+        /** the subject type */
+        SubjectType type;
+
+        /** Context ID: OS process id for type process, thread id for threads */
+        int cid;
+
+        /** 
+         * parent subject's UUID. For a process, this is a parent
+         * process. For a thread, this is the process that created the
+         * thread. Only optional because in some cases the parent may not
+         * be known; null value indicates that the parent is unknown.
+         */
+        union {null, UUID} parentSubject = null;
+
+        /**
+         * UUID of local principal that owns this subject This
+         * attribute is optional because there are times when
+         * the owner of the subject may not be known at the time the file
+         * object is reported (e.g., missed open call). Otherwise,
+         * the local principal SHOULD be included.
+         */
+        union {null, UUID} localPrincipal = null;
+
+        /**
+         * The start time of the subject
+         * A timestamp stores the number of nanoseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.
+         *
+         * This attribute is optional because there are times when the
+         * subject's start time may not be known. This happens when
+         * the subject was started before TC instrumentation software
+         * was started. Otherwise, the timestamp SHOULD be included.
+         */
+        union {null, long} startTimestampNanos = null;
+
+        /** unit id for unit based instrumentation (Optional)*/
+        union {null, int} unitId = null;
+
+        /** iteration and count are used for distinguishing individual "units" of execution (Optional)*/
+        union {null, int} iteration = null;
+        union {null, int} count = null;
+
+        /** Process command line arguments including process name (Optional) */
+        union {null, string} cmdLine = null;
+
+        /** Windows allows processes to have different privilege levels (Optional) */
+        union {null, PrivilegeLevel} privilegeLevel = null;
+
+        /** 
+         * imported libraries. (Optional). Lists the libraries that
+         * are expected to be loaded, but may not necessarily
+         * correspond 1-to-1 with actual load library events because
+         * some libraries may already be loaded when this event
+         * occurs.
+         */
+        union {null, array<string>} importedLibraries = null;
+
+        /** exported libraries. (Optional) */
+        union {null, array<string>} exportedLibraries = null;
+
+        /** 
+         * Arbitrary key, value pairs describing the entity.
+         * NOTE: This attribute is meant as a temporary place holder for items that
+         * will become first-class attributes in the next CDM version.
+         */
+        union {null, map<string>} @order("ignore") properties = null;
+    }
+
+    /**
+     *  Objects, in general, represent data sources and sinks which
+     *  could include sockets, files, memory, and any data in general
+     *  that can be an input and/or output to an event.  This record
+     *  is intended to be abstract i.e., one should not instantiate an
+     *  Object but rather instantiate one of its sub types (ie,
+     *  encapsulating records) FileObject, UnnamedPipeObject,
+     *  RegistryKeyObject, NetFlowObject, MemoryObject, or
+     *  SrcSinkObject.
+     */
+    record AbstractObject {
+
+        /** Permission bits defined over the object (Optional) */
+        union {null, SHORT} permission = null;
+
+        /**
+         * Used to track when an object is deleted and a new one is
+         * created with the same identifier. This is useful for when
+         * UUIDs are based on something not likely to be unique, such
+         * as file path.
+         */
+        union {null, int} epoch = null;
+
+        /** 
+         * Arbitrary key, value pairs describing the entity.
+         * NOTE: This attribute is meant as a temporary place holder for items that
+         * will become first-class attributes in the next CDM version.
+         */
+        union {null, map<string>} @order("ignore") properties = null;
+    }
+
+    /**
+     * Represents a file on the file system. Instantiates an AbstractObject.
+     */
+    record FileObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The type of FileObject */
+        FileObjectType type;
+
+        /** The file descriptor (Optional) */
+        union {null, int} fileDescriptor = null;
+
+        /** UUID of local principal that owns this file object.  This
+         * attribute is optional because there are times when 
+         * the owner of the file may not be known at the time the file
+         * object is reported (e.g., missed open call). Otherwise,
+         * the local principal SHOULD be included.
+         */
+        union {null, UUID} localPrincipal = null;
+
+        /** 
+         * The file size in bytes (Optional). This attribute reports
+         * the file size at the time the FileObject is created. Since records
+         * are not updated, changes in file size is trackable via the events
+         * that changed the file size.
+         */
+        union {null, long} size = null;
+
+        /** 
+         * portable execution (PE) info for windows (Optional).
+         * Note from FiveDirections: We will LIKELY change this type for engagement 3 
+         */
+        union {null, string} peInfo = null;
+
+        /** (Optional) Zero or more cryptographic hashes over the FileObject */
+        union {null, array<CryptographicHash>} hashes = null;
+    }
+
+    /**
+     * Represents an IPC. Instantiates an AbstractObject.
+     */
+    record IpcObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The type of IpcObject */
+        IpcObjectType type;
+
+        /**
+         * If flow is unidirectional, then source is UUID1/fd1 and
+         * destination is UUID2/fd2.
+         */
+        union {null, UUID} uuid1 = null;
+        union {null, UUID} uuid2 = null;
+
+        union {null, int} fd1 = null;
+        union {null, int} fd2 = null;
+    }
+
+    /**
+     * Represents a registry key. Instantiates an AbstractObject.
+     */
+    record RegistryKeyObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The registry key/path */
+        string key;
+
+        /** The value of the key */
+        union {null, Value} value = null;
+
+        /** The entry size in bytes (Optional) */
+        union {null, long} size = null;
+    }
+
+
+    /**
+     * Represents a packet socket. Instantiates an AbstractObject.
+     */
+    record PacketSocketObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** Physical-layer protocol */
+        SHORT proto;
+
+        /** Interface number */
+        int ifIndex;
+
+        /** ARP hardware type */
+        SHORT haType;
+
+        /** Packet type */
+        BYTE pktType;
+
+        /** Physical-layer address */
+        bytes addr;
+    }
+
+    /**
+     * Represents a network flow object. Instantiates an AbstractObject.
+     */
+    record NetFlowObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /**
+         * The local IP address for this flow. Optional for when not
+         * obtained initially.
+         */
+        union {null, string} localAddress = null;
+
+        /**
+         * The local network port for this flow. Optional for AF_UNIX
+         * sockets (unnamed and abstract), or for when not obtained
+         * initially.
+         */
+        union {null, int} localPort = null;
+
+        /**
+         * The remote IP address for this flow. Optional for binds
+         * that are a listening action and not a full connection, or
+         * for when not obtained initially.
+         */
+        union {null, string} remoteAddress = null;
+
+        /**
+         * The remote network port for this flow. Optional for binds
+         * that are a listening action and not a full connection. Also
+         * optional for AF_UNIX sockets (unnamed and abstract) and for
+         * when not obtained intially.
+         */
+        union {null, int} remotePort = null;
+
+        /** The IP protocol number e.g., TCP=6 */
+        union {null, int} ipProtocol = null;
+
+        /** 
+         * The initial sequence number for a TCP connection (use the
+         * SYN from the initiator). This is to correlate flows across
+         * hosts for improved cross-host tracking.
+         */
+        union {null, int} initTcpSeqNum = null;
+        
+        /** The file descriptor (Optional) */
+        union {null, int} fileDescriptor = null;
+    }
+
+    /**
+     * Represents a page in memory. Instantiates an AbstractObject.
+     * TODO: is memory really an object (with permissions and so on) or is it a transient data?
+     */
+    record MemoryObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The memory address */
+        long memoryAddress;
+
+        /** (Optional) decomposed memory addressed into pageNumber and pageOffset */
+        union {null, long} pageNumber = null;
+        union {null, long} pageOffset = null;
+
+        /** The entry size in bytes (Optional) */
+        union {null, long} size = null;
+    }
+
+    /**
+     * Represents a generic source or sink on the host device that is can be a file, memory, or netflow.
+     * This is the most basic representation of a source or sink, basically specifying its type only.
+     */
+    record SrcSinkObject {
+
+        /** Universally unique identifier for the object */
+        UUID uuid;
+
+        /** The base object attributes */
+        AbstractObject baseObject;
+
+        /** The type of the object */
+        SrcSinkType type;
+
+        /** The file descriptor (Optional) */
+        union {null, int} fileDescriptor = null;
+    }
+
+    // ======================================
+    //      EDGE RECORDS
+    // ======================================
+
+    /**
+     * Events represent actions executed by subjects on data objects
+     * or other subjects.  Events are generally system calls, but
+     * could also include function calls, instruction executions, or
+     * even more abstract notions. Events are the core entity in the
+     * data model and they are the main abstraction for representing
+     * information flow between data objects and subjects.
+     */
+    record Event {
+
+        /** A universally unique identifier for the event */
+        UUID uuid;
+
+        /**
+         * A logical sequence number for ordering events relative to
+         * each other within a subject's execution context
+         *
+         * This attribute is only optional for inferred events, such
+         * as an object's attribute change that was observed without
+         * an explicit event or system call.
+         */
+        union {null, long} sequence = null;
+
+        /** The type of the event */
+        EventType type;
+
+        /**
+         * The thread id to which this event belongs.  Required for
+         * all events, except the EVENT_ADD_OBJECT_ATTRIBUTE and
+         * EVENT_FLOWS_TO event.
+         */
+        union {null, int} threadId = null;
+
+        /**
+         * UUID of Subject that generated this event.  The subject is
+         * required for all events, except the
+         * EVENT_ADD_OBJECT_ATTRIBUTE and EVENT_FLOWS_TO event.
+         */
+        union {null, UUID} subject = null;
+
+        /**
+         * UUID of Object/Subject this event acts on. For events that
+         * have two arguments, this attribute contains the first
+         * argument (following the argument order in the underlying
+         * system call). This attribute is optional because it may not
+         * be relevant for some events.
+         */
+        union {null, UUID} predicateObject = null;
+
+        /** If applicable, the object's absolute file path (Optional) */
+        union {null, string} predicateObjectPath = null;
+
+        /**
+         * Optional UUID of Object/Subject for events that take two
+         * arguments (e.g., link, rename, etc). This attribute
+         * contains the second argument (following the argument order
+         * in the underlying system call).
+         */
+        union {null, UUID} predicateObject2 = null;
+
+        /** If applicable, the second object's absolute file path (Optional) */
+        union {null, string} predicateObject2Path = null;
+
+        /**
+         * The time at which the event occurred. Timestamps allow
+         * reasoning about order of events on a host when the same
+         * clock is used. A timestamp stores the number of nanoseconds
+         * from the unix epoch, 1 January 1970 00:00:00.000000 UTC.
+         *
+         * TODO: When different clocks are used on a host or across
+         * hosts, we need to also define a clock source
+         *
+         * NOTE: When an object update is inferred without an explicit
+         * system call event, TA1s may not have an accurate timestamp
+         * of when the object was updated. In that case, the timestamp
+         * used in the update event is the same as the timestamp used
+         * in the next system call event that uses the updated object.
+         */
+        long timestampNanos;
+
+        /**
+         * Event names (Optional). Multiple names may be provided to
+         * allow for reporting many parameterless system calls in a
+         * single Event record.
+         */
+        union {null, array<string>} names = null;
+
+        /** Event parameters represented as values, see Value (Optional) */
+        union {null, array<Value>} parameters = null;
+
+        /** Location refers to the location of the data affecting the event
+         *  (e.g., the read offset in the file for the read system call event). (Optional)
+         */
+        union {null, long} location = null;
+
+        /** Size refers to the size of the data affecting the event
+         *  (e.g., the number of bytes read from the file for the read system call event). (Optional)
+         */
+        union {null, long} size = null;
+
+        /** The program point where the event was triggered (e.g., executable and line number). (Optional) */
+        union {null, string} programPoint = null;
+
+        /**
+         * Arbitrary key, value pairs describing the entity.
+         * NOTE: This attribute is meant as a temporary place holder for items that
+         * will become first-class attributes in the next CDM version.
+         */
+        union {null, map<string>} @order("ignore") properties = null;
+    }
+
+    /**
+     * This record captures a relationship edge between two units, one
+     * dependent on the other. This relationship is inferred from a
+     * combination of underlying events.
+     */
+    record UnitDependency {
+        UUID unit;
+        UUID dependentUnit;
+    }
+
+    // ======================================
+    //      CDM CONTROL RECORDS
+    // ======================================
+
+    /**
+     * TimeMarker records are used to delineate time periods in a data
+     * stream to help consumers know their current read position in the
+     * data stream.
+     */
+    record TimeMarker {
+
+        /** Timestamp in nanoseconds */
+        long tsNanos;
+    }
+
+    /**
+     * EndMarker records marks the end of a data stream.
+     */
+    record EndMarker {
+
+        /** session number in the corresponding StartMarker */
+        int sessionNumber;
+
+        /**
+         * Reports countc of each record type that has been published
+         * since the the start of the data stream.
+         */
+        map<string> @order("ignore") recordCounts;
+    }
+
+    // ======================================
+    //      COMPOSITE RECORDS
+    // ======================================
+
+    /**
+     * A record representing either a vertex or an edge. This is the top level record that allows
+     * us to easily mix the vertices and edges defined above on the wire.
+     *
+     * Host records delineate system (re)starts in a data
+     * stream. i.e., A data stream MUST start with a Host record and a
+     * new session number. TCCDMDatum records that contain a Host
+     * record define the Host UUID in the Host record, and MUST also
+     * include the same UUID in the TCCDMDatum record's hostId field.
+     */
+    record TCCDMDatum {
+        union {
+            Host,
+            Principal,
+            ProvenanceTagNode,
+            UnknownProvenanceNode,
+            Subject,
+            FileObject,
+            IpcObject,
+            RegistryKeyObject,
+            PacketSocketObject,
+            NetFlowObject,
+            MemoryObject,
+            SrcSinkObject,
+            Event,
+            UnitDependency,
+            TimeMarker,
+            EndMarker
+        } datum;
+        string CDMVersion = "20";
+
+        /** The type of record in the union */
+        RecordType type;
+
+        /** unique identifier of the host publishing this record */
+        UUID hostId;
+
+        /** sequence number that monotonically increases each time the system is started */
+        int sessionNumber;
+
+        /** What source generated this record? */
+        InstrumentationSource source;
+    }
+}

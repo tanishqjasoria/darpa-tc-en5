@@ -1,0 +1,20 @@
+{
+  "type" : "record",
+  "name" : "CryptographicHash",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* Cryptographic hash records represent one or more cryptographic hashes for\n     * an object, typically, a FileObject.",
+  "fields" : [ {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "CryptoHashType",
+      "doc" : "Cryptographich hash types",
+      "symbols" : [ "MD5", "SHA1", "SHA256", "SHA512", "AUTHENTIHASH", "SSDEEP", "IMPHASH" ]
+    },
+    "doc" : "The type of hash used"
+  }, {
+    "name" : "hash",
+    "type" : "string",
+    "doc" : "The base64 encoded hash value"
+  } ]
+}

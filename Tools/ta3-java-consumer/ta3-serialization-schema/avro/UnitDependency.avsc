@@ -1,0 +1,18 @@
+{
+  "type" : "record",
+  "name" : "UnitDependency",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* This record captures a relationship edge between two units, one\n     * dependent on the other. This relationship is inferred from a\n     * combination of underlying events.",
+  "fields" : [ {
+    "name" : "unit",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    }
+  }, {
+    "name" : "dependentUnit",
+    "type" : "UUID"
+  } ]
+}

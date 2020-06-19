@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "ValueDataType",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* A value data type is one of the primitive data types. A string is treated as a char array",
+  "symbols" : [ "VALUE_DATA_TYPE_BYTE", "VALUE_DATA_TYPE_BOOL", "VALUE_DATA_TYPE_CHAR", "VALUE_DATA_TYPE_SHORT", "VALUE_DATA_TYPE_INT", "VALUE_DATA_TYPE_FLOAT", "VALUE_DATA_TYPE_LONG", "VALUE_DATA_TYPE_DOUBLE", "VALUE_DATA_TYPE_POINTER32", "VALUE_DATA_TYPE_POINTER64", "VALUE_DATA_TYPE_COMPLEX" ]
+}

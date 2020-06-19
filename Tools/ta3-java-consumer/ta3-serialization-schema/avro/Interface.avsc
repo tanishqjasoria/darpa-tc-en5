@@ -1,0 +1,20 @@
+{
+  "type" : "record",
+  "name" : "Interface",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "Interface name and addresses",
+  "fields" : [ {
+    "name" : "name",
+    "type" : "string"
+  }, {
+    "name" : "macAddress",
+    "type" : "string"
+  }, {
+    "name" : "ipAddresses",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "default" : null
+  } ]
+}

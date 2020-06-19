@@ -1,0 +1,65 @@
+/*
+ * This software delivered to the Government with unlimited rights pursuant to contract FA8750-C-15-7559.
+ *
+ * A sample avro schema representing a labeled property graph
+ * A record is either a node with properties or a relationship with properties (a union type)
+ * This is a generic graph schema that I created for testing
+ * It may be easily extended
+ * 
+ * @author jkhoury
+ */
+[
+{
+  "type": "record",
+  "namespace": "com.bbn.tc.schema.avro",
+  "name": "LabeledNode",
+  "doc": "A labeled node in a labeled property graph with properties",
+  "fields": [
+    { "type": "long", "name": "id", "doc": "Node’s unique identifier." },
+    {
+	"name": "label",
+	"type":
+	{
+	 "type": "enum",
+	 "name": "NODE_LABELS",
+	 "symbols": ["unitOfExecution", "artifact", "agent"]
+    },
+    "doc": "Node's label, role in the domain.",
+    "default": "artifact"
+    },
+    {
+      "type": ["null", { "type": "map", "values": { "type": "string", "avro.java.string": "String" } }],
+      "name": "properties",
+      "doc": "Arbitrary key, value pairs describing the node.",
+      "default": null
+    }
+  ]
+},
+{
+  "type": "record",
+  "namespace": "com.bbn.tc.schema.avro",
+  "name": "LabeledEdge",
+  "doc": "A directed edge connecting two nodes, with arbitrary properties.",
+  "fields": [
+    {
+	"name": "label",
+	"type":
+	{
+	 "type": "enum",
+	 "name": "EDGE_LABELS",
+	 "symbols": ["modified", "wasAssociatedWith", "generated", "read", "actedOn", "wasGeneratedBy"]
+	},
+	"doc": "Edges label, role in the domain.",
+	"default": "wasAssociatedWith"
+    },
+    { "type": "LabeledNode", "name": "fromNode", "doc": "The from node on the edge." },
+    { "type": "LabeledNode", "name": "toNode",   "doc": "The to node on the edge." },
+    {
+      "type": ["null", { "type": "map", "values": { "type": "string", "avro.java.string": "String" }}],
+      "name": "properties",
+      "doc": "Arbitrary key, value pairs describing the edge.",
+      "default": null
+    }
+  ]
+}
+]

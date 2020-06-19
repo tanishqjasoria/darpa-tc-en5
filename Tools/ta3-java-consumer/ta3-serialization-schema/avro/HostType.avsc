@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "HostType",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* HostType enumerates the host roles or device types",
+  "symbols" : [ "HOST_MOBILE", "HOST_SERVER", "HOST_DESKTOP", "HOST_OTHER" ]
+}

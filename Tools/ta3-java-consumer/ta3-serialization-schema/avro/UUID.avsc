@@ -1,0 +1,7 @@
+{
+  "type" : "fixed",
+  "name" : "UUID",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+  "size" : 16
+}

@@ -1,0 +1,52 @@
+{
+  "type" : "record",
+  "name" : "Principal",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* A principal is a local user\n     * TODO: extend to include remote principals\n     * TODO: what happens when the user information changes (are we tracking versions?)\n     * TODO: Authentication mechanisms: are TA1s providing that information and how?",
+  "fields" : [ {
+    "name" : "uuid",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    },
+    "doc" : "A unique id for the principal"
+  }, {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "PrincipalType",
+      "doc" : "* PrincipalType identifies the type of user: either local to the\n     * host, or remote users/systems.",
+      "symbols" : [ "PRINCIPAL_LOCAL", "PRINCIPAL_REMOTE" ]
+    },
+    "doc" : "The type of the principal, local by default",
+    "default" : "PRINCIPAL_LOCAL"
+  }, {
+    "name" : "userId",
+    "type" : "string",
+    "doc" : "The operating system identifier associated with the user"
+  }, {
+    "name" : "username",
+    "type" : [ "null", "string" ],
+    "doc" : "Human-readable string identifier, such as username (Optional)",
+    "default" : null
+  }, {
+    "name" : "groupIds",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "The ids of the groups which this user is part of",
+    "default" : null
+  }, {
+    "name" : "properties",
+    "type" : [ "null", {
+      "type" : "map",
+      "values" : "string"
+    } ],
+    "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
+    "default" : null,
+    "order" : "ignore"
+  } ]
+}

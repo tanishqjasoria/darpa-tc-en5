@@ -1,0 +1,59 @@
+[
+{
+  "type": "record",
+  "namespace": "com.bbn.tc.schema.avro",
+  "name": "LabeledNode",
+  "doc": "A labeled node in a labeled property graph with properties",
+  "fields": [
+    { "type": "long", "name": "id", "doc": "Node's unique identifier." },
+    { "type": "float", "name": "prob", "default": -1.0, "doc": "Node's probability." },
+    {
+	"name": "role",
+	"aliases": ["label"],
+	"type":
+	{
+	 "type": "enum",
+	 "name": "NODE_LABELS",
+	 "symbols": ["unitOfExecution", "artifact", "agent", "sensor"]
+    },
+    "doc": "Node's role in the domain.",
+    "default": "artifact"
+    },
+    {
+      "type": ["null", { "type": "map", "values": { "type": "string", "avro.java.string": "String" } }],
+      "name": "properties",
+      "doc": "Arbitrary key, value pairs describing the node.",
+      "default": null
+    }
+  ]
+},
+{
+  "type": "record",
+  "namespace": "com.bbn.tc.schema.avro",
+  "name": "LabeledEdge",
+  "doc": "A directed edge connecting two nodes, with arbitrary properties.",
+  "fields": [
+    {
+	"name": "role",
+	"aliases": ["label"],
+	"type":
+	{
+	 "type": "enum",
+	 "name": "EDGE_LABELS",
+	 "symbols": ["modified", "wasAssociatedWith", "generated", "read", "actedOn", "wasGeneratedBy", "wasDerivedFrom"]
+	},
+	"doc": "Edges label, role in the domain.",
+	"default": "wasAssociatedWith"
+    },
+    { "type": "float", "name": "weight", "default": -1.0, "doc": "edge's weight." },
+    { "type": "LabeledNode", "name": "fromNode", "doc": "The from node on the edge." },
+    { "type": "LabeledNode", "name": "toNode",   "doc": "The to node on the edge." },
+    {
+      "type": ["null", { "type": "map", "values": { "type": "string", "avro.java.string": "String" } }],
+      "name": "properties",
+      "doc": "Arbitrary key, value pairs describing the edge.",
+      "default": null
+    }
+  ]
+}
+]

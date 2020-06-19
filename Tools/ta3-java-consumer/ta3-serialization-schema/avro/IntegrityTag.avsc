@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "IntegrityTag",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* The integrity tag may be used to specify the initial integrity of an entity,\n     * or to endorse its content after performing appropriate checking/sanitization.",
+  "symbols" : [ "INTEGRITY_UNTRUSTED", "INTEGRITY_BENIGN", "INTEGRITY_INVULNERABLE" ]
+}

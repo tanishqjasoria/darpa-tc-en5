@@ -1,0 +1,19 @@
+{
+  "type" : "record",
+  "name" : "EndMarker",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* EndMarker records marks the end of a data stream.",
+  "fields" : [ {
+    "name" : "sessionNumber",
+    "type" : "int",
+    "doc" : "session number in the corresponding StartMarker"
+  }, {
+    "name" : "recordCounts",
+    "type" : {
+      "type" : "map",
+      "values" : "string"
+    },
+    "doc" : "* Reports countc of each record type that has been published\n         * since the the start of the data stream.",
+    "order" : "ignore"
+  } ]
+}

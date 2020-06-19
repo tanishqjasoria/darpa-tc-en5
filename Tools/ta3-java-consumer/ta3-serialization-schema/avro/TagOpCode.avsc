@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "TagOpCode",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* The tag opcode describes the provenance relation i.e., how multiple sources are combined to\n     * produce the output. We identify the following provenance relations",
+  "symbols" : [ "TAG_OP_UNION", "TAG_OP_ENCODE", "TAG_OP_STRONG", "TAG_OP_MEDIUM", "TAG_OP_WEAK" ]
+}

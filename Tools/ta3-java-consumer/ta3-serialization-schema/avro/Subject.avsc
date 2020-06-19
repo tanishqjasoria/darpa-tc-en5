@@ -1,0 +1,98 @@
+{
+  "type" : "record",
+  "name" : "Subject",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* Subjects represent execution contexts and include mainly threads and processes. They can be more granular and\n     * can represent other execution boundaries such as units and blocks if needed.",
+  "fields" : [ {
+    "name" : "uuid",
+    "type" : {
+      "type" : "fixed",
+      "name" : "UUID",
+      "doc" : "* A host MUST NOT reuse UUIDs at all within their system, even\n     * across restarts, and definitely not for 2 distinct objects",
+      "size" : 16
+    },
+    "doc" : "universally unique identifier for the subject"
+  }, {
+    "name" : "type",
+    "type" : {
+      "type" : "enum",
+      "name" : "SubjectType",
+      "doc" : "* SubjectType enumerates the types of execution contexts supported.\n     *\n     * SUBJECT_PROCESS,    process\n     * SUBJECT_THREAD,     thread within a process\n     * SUBJECT_UNIT        so far we only know of TRACE BEEP using this",
+      "symbols" : [ "SUBJECT_PROCESS", "SUBJECT_THREAD", "SUBJECT_UNIT", "SUBJECT_BASIC_BLOCK", "SUBJECT_OTHER" ]
+    },
+    "doc" : "the subject type"
+  }, {
+    "name" : "cid",
+    "type" : "int",
+    "doc" : "Context ID: OS process id for type process, thread id for threads"
+  }, {
+    "name" : "parentSubject",
+    "type" : [ "null", "UUID" ],
+    "doc" : "* parent subject's UUID. For a process, this is a parent\n         * process. For a thread, this is the process that created the\n         * thread. Only optional because in some cases the parent may not\n         * be known; null value indicates that the parent is unknown.",
+    "default" : null
+  }, {
+    "name" : "localPrincipal",
+    "type" : [ "null", "UUID" ],
+    "doc" : "* UUID of local principal that owns this subject This\n         * attribute is optional because there are times when\n         * the owner of the subject may not be known at the time the file\n         * object is reported (e.g., missed open call). Otherwise,\n         * the local principal SHOULD be included.",
+    "default" : null
+  }, {
+    "name" : "startTimestampNanos",
+    "type" : [ "null", "long" ],
+    "doc" : "* The start time of the subject\n         * A timestamp stores the number of nanoseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * This attribute is optional because there are times when the\n         * subject's start time may not be known. This happens when\n         * the subject was started before TC instrumentation software\n         * was started. Otherwise, the timestamp SHOULD be included.",
+    "default" : null
+  }, {
+    "name" : "unitId",
+    "type" : [ "null", "int" ],
+    "doc" : "unit id for unit based instrumentation (Optional)",
+    "default" : null
+  }, {
+    "name" : "iteration",
+    "type" : [ "null", "int" ],
+    "doc" : "iteration and count are used for distinguishing individual \"units\" of execution (Optional)",
+    "default" : null
+  }, {
+    "name" : "count",
+    "type" : [ "null", "int" ],
+    "default" : null
+  }, {
+    "name" : "cmdLine",
+    "type" : [ "null", "string" ],
+    "doc" : "Process command line arguments including process name (Optional)",
+    "default" : null
+  }, {
+    "name" : "privilegeLevel",
+    "type" : [ "null", {
+      "type" : "enum",
+      "name" : "PrivilegeLevel",
+      "doc" : "* Windows allows Subjects (processes) to have the following\n     * enumerated privilege levels.",
+      "symbols" : [ "LIMITED", "ELEVATED", "FULL" ]
+    } ],
+    "doc" : "Windows allows processes to have different privilege levels (Optional)",
+    "default" : null
+  }, {
+    "name" : "importedLibraries",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "* imported libraries. (Optional). Lists the libraries that\n         * are expected to be loaded, but may not necessarily\n         * correspond 1-to-1 with actual load library events because\n         * some libraries may already be loaded when this event\n         * occurs.",
+    "default" : null
+  }, {
+    "name" : "exportedLibraries",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "string"
+    } ],
+    "doc" : "exported libraries. (Optional)",
+    "default" : null
+  }, {
+    "name" : "properties",
+    "type" : [ "null", {
+      "type" : "map",
+      "values" : "string"
+    } ],
+    "doc" : "* Arbitrary key, value pairs describing the entity.\n         * NOTE: This attribute is meant as a temporary place holder for items that\n         * will become first-class attributes in the next CDM version.",
+    "default" : null,
+    "order" : "ignore"
+  } ]
+}

@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "PrivilegeLevel",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* Windows allows Subjects (processes) to have the following\n     * enumerated privilege levels.",
+  "symbols" : [ "LIMITED", "ELEVATED", "FULL" ]
+}

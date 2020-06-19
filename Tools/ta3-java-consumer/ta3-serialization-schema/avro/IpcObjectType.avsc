@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "IpcObjectType",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* These types enumerate the types of IpcObjects",
+  "symbols" : [ "IPC_OBJECT_PIPE_NAMED", "IPC_OBJECT_PIPE_UNNAMED", "IPC_OBJECT_SOCKET_ABSTRACT", "IPC_OBJECT_SOCKET_PAIR", "IPC_OBJECT_SOCKET_PATHNAME", "IPC_OBJECT_SOCKET_UNNAMED", "IPC_OBJECT_WINDOWS_ALPC", "IPC_OBJECT_WINDOWS_MAILSLOT", "IPC_OBJECT_SOCKET_NETLINK" ]
+}

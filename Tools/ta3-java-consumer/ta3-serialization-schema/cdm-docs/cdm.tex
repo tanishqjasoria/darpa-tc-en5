@@ -1,0 +1,516 @@
+%\documentclass{sig-alternate-10pt}
+\documentclass[10pt, conference, onecolumn]{IEEEtran}
+% used for pseudocode
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{longtable}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{subfig}
+\usepackage{graphics}
+\usepackage{graphicx}
+\usepackage[T1]{fontenc} % optional
+\usepackage{amsmath}
+\usepackage[cmintegrals]{newtxmath}
+\usepackage{bm} % optional
+\usepackage{microtype}
+\usepackage{cleveref}
+\usepackage{fancyvrb}
+
+\newcommand\tab[1][1em]{\hspace*{#1}}
+
+\begin{document}
+\title{A Common Data Model for Tagged Event Streams: Version 18}
+\maketitle
+
+\section{Introduction}
+
+This document is intended to describe the semantics and syntax of a
+common data model that will be used for capturing tagged event streams
+produced by TA1 performers. The core model is directly based on the
+proposals put forth by the three TA2 teams, which we refer to as
+MARPLE, ADAPT, and RIPE teams/proposals and evolved to include TA1
+team concerns. The TC performers reached consensus on the core
+conceptual model described in this document. Our original attempt was
+to combine the strengths of all three proposals by borrowing key
+concepts from each, but the design evolved over time as the teams
+gained experience with the data model.
+
+There are three main requirements articulated by the
+TA2 teams from such a data model. The model is expected to:
+
+\begin{itemize}
+
+  \item be able to capture metadata about both the data and control
+    planes with high fidelity and various granularities
+
+  \item be natural for expressing the information produced by TA1
+    performers without adding undue burden on them
+
+  \item contain the semantics needed to enable real-time detection and
+    forensic analysis by TA2 performers
+
+\end{itemize}
+
+In \S~\ref{sec:conceptual}, we discuss some of the high level
+concepts. We then present a work in progress typed schema
+specification of the conceptual model in \S~\ref{sec:syntax} which
+will be used directly for expressing and serializing TA1 data streams.
+This a graph data model so the entities and relationships correspond
+directly to nodes and edges in the graph. The history of changes to the data model is tracked in \S~\ref{sec:history}
+
+
+\section{Conceptual View}\label{sec:conceptual}
+
+There are six core entities in the model: \textit{Hosts},
+\textit{Principals}, \textit{Subjects}, \textit{Events},
+\textit{Objects}, and \textit{Tags}.  The model combines the following
+strengths from the three proposals:
+
+\begin{itemize}
+
+  \item MARPLE: MARPLE's event-based model served as the basis of the
+    common data model. Events are first-class entities that are
+    represented with high fidelity, along with both control flow
+    (order) and data flow (tags). More on the rationale in
+    \S~\ref{sec:conceptual:events}.
+
+   \item ADAPT: the hierarchical relationships proposed by ADAPT in
+     PROV-TC for objects and subjects enable us to capture the mixed
+     granularities and containment semantics. The Entity Relationship
+     Diagram of PROV-TC was a useful tool for communicating the model.
+
+   \item RIPE: data flows between objects and events are explicit in
+     the model.
+     
+\end{itemize}
+
+As important as the model itself is the rationale for making some of
+the different design choices which we describe in this section.  
+
+\subsection{Hosts and Principals}
+
+A Host represent a host, machine or node in a network on which
+Principals and Objects reside, Subjects execute and Events occur. A
+Principal represents a local user that owns Objects and process
+Subjects.
+
+\subsection{Subjects}
+
+Subjects represent execution contexts and include mainly threads and
+processes. They can be more granular and can represent other execution
+boundaries such as functions and blocks if needed. For example, a
+function within a thread within a process can be represented as three
+subjects where the function's \textit{parentSubject} attribute is the
+thread, and the thread's \textit{parentSubject} attribute is the
+process. A process' \textit{parentSubject} attribute would be set to
+the parent process that spawned it. Here the function subject is an
+execution boundary that is more granular than the thread (while we can
+represent this granularity, as of now it is unclear if and when this
+will be useful).
+
+\subsection{Events}\label{sec:conceptual:events}
+
+Events represent actions executed on behalf of subjects. Events could
+include system calls, function calls at different layers, instruction
+executions, or even more abstract notions representing a ``blind''
+execution such as black boxes that are not instrumented (more
+shortly). Events are the core entity in the model and they are the
+main abstraction for representing information flow between objects and
+subjects, conceptually represented as a directed edge betwen subject
+and object or vice-versa.  Events are assumed to be atomic so there is
+no direct relationship between events (except for the meta-event
+described shortly). Instead, events are related to other events
+through the affected subjects and objects.
+
+Events can have different granularities but they are still atomic. For
+example, a function boundary may execute many atomic events within it,
+hence the function entry call would be captured as an event and so
+would the function exit call. The function boundary itself may be
+captured as a subject in this case if needed. If the function boundary
+is not instrumented however (black box), the function execution may
+still be captured as a ``blind'' event that relates the input and
+output subjects and objects (more on blindness shortly).
+
+The event \textit{sequence} represents the logical order of the event
+relative to other events within the same execution thread.  This could
+be the logical time, or if timestamps are accurate enough,
+\textit{sequence} might be inferred from timestamps but that is not
+guaranteed which is why we kept \textit{sequence}.
+
+\subsection{Objects}\label{sec:objects}
+
+Objects, in general, represent data sources and sinks which could
+include sockets, files, registry keys, memory and variables, and any
+data in general that can be an input and/or output to an event. This
+model expands the definition of objects to explicitly capture the flow
+of data inputs and outputs to and from events.  We initially decided
+to treat event arguments as first class objects (instead of attributes
+of the event entity) where each object may have its own provenance
+again explicitly showing the flow from inputs to outputs. However we
+backed away from this later on as discussed shortly.
+
+We identified some key object attributes. The object
+\textit{timestamp} is the creation time.  The file \textit{url} is its
+local or remote path/location. Files have version numbers. As files
+get updated, a new file object is created with a new version number.
+
+\paragraph{Transient data} 
+
+One of the main discussion points was whether we should model
+arguments as Objects or whether we should explicitly distinguish
+transient data (e.g., arguments) from more persistent data (e.g.,
+files).  We agreed that it makes more sense to distinguish the two
+mainly because they have very different attributes (arguments don't
+have ownership and path attributes and have a value attribute).
+Initially, we decided to model a value as a first class entity, just
+like objects, that can have tags (discussed in \S \ref{sec:tags}) and
+\textit{affect} (and are affected by) events.  We later decided (in
+version 0.7) to make values attributes of events instead of first
+class entities for the following reasons: values are one time
+constructs that only show up with the event and are not referenced
+afterwards during execution. TA-1 systems also do not track at the
+level of a value. In addition, treating a value as a first class
+entity requires that we assign a unique ID to each value which does
+not scale since values can have byte granularity. As a result, we
+decided to make values attributes of the events.
+
+\paragraph{Granularity and types}
+
+We discussed representing objects at various granularities. ADAPT
+modeled object containment using the \textit{isPartOf} relationship
+associated with the object/artifact. This allows us to represent a set
+of objects being part of a parent object, such as when writing buffers
+(objects with different tags) to a file (parent object). To explicitly
+differentiate between different types of objects, we also decided to
+subclass the abstract object into Files, Network Flows, Memory, Packet
+Sockets, Registry Key, and Unnamed Pipe objects (and others we may
+idnetify) instead of modeling those using a type attribute of the
+object entity. This is mainly to keep the model clean given the
+difference in attribute sets among the object types.  We include a
+RegistryKeyObject to model windows registry key store.  Finally, we
+also discussed whether we should model mobile phone sensors (GPS,
+camera, gyro, etc.) as a separate entity from Object, called Resource
+(as proposed in ADAPT). One observation here is that the sensing
+subsystem in Android for example might have enough differences to
+warrant this distinction. The counter argument is that Android uses
+linux underneath and one might be able to get away with an Object
+abstraction for all such data devices. For now, we decided to only
+distinguish a few object types (those mentioned above) and everything
+else uses the generic SrcSink object which is typed (e.g., sensors,
+camera, etc).
+
+\paragraph{Provenance}
+
+As discussed earlier, we explicitly model the relations between events
+and objects and subjects using the events as relationships (or edges)
+that connect subjects and objects. These edges represent provenance
+directly in the graph. The complementary more granular approach uses
+tags, discussed next.
+
+\subsection{Tags} \label{sec:tags}
+
+The tag design was originally fleshed out by the MARPLE team, and then
+later reworked signficantly by the Clearscope TA1 team. The rationale
+for tags and their semantics is described next.
+
+The primary motivation for tags is the ability to capture flows at a
+finer granularity and with increased precision. Specifically, tags can
+capture:
+
+\begin{itemize}
+
+  \item {\em Increased precision:} Tags should be able to capture
+    information flow from a (strict) subset of inputs represented in a
+    causality graph. For instance, a subject may read from 100 files,
+    and then write one file. Rather than reporting that the output
+    depends on these 100 inputs, a TA1 system can indicate that it
+    depends only on 10th and 97th input files.
+
+  \item {\em Nature of dependence:} The behavior of the system can be
+    understood in terms of a series of operations on inputs to produce
+    outputs. Fine-grained tracking can identify the effect of these
+    operations on data flows. These effects can be described using
+    {\em tag operations,} which can capture:
+
+    \begin{itemize}
+
+      \item common operations on data such as concatenation, mixing,
+        compression, and so on.
+
+      \item {\em declassification} and {\em endorsement,} the central
+        operations used in information flow control literature
+
+      \item strength of dependence, e.g., control dependence or
+        implicit dependence
+        
+    \end{itemize}
+
+   \item {\em Flows involving internal (unreported) objects:}
+     Especially for in-memory objects, not all updates and flows may
+     be reported by a TA1 system. A TA1 system will internally keep
+     track of these updates, and can then make the information
+     available at the time when these objects contribute to an event
+     argument.
+
+\end{itemize}
+
+Tags are directly associated with event parameters i.e., with Values,
+as attributes of the Value entity for fine grained taint tracking.
+Each Value has a array of tags associated with the bytes that make up
+the Value.
+
+\section{Typed Schema Definition}
+\label{sec:syntax}
+
+TA3 is developing a versioned and typed schema that codifies the above
+conceptual model. The actual data model will necessarily evolve based
+on the TA1-TA2 discussions expected in the coming months.  The schema
+definition will evolve in parallel to match the latest version of the
+data model.
+
+The schema is specified using the Apache Avro Interface Description
+Language (IDL) language. Avro IDL is a high-level language for
+authoring Avro schemata. It provides a familiar feel for developers in
+that it is similar to common programming languages like Java, C++, and
+Python. Also, it is similar to IDLs in other serialization
+frameworks such as Thrift and Protocol Buffers. Avro provides a tool
+to convert the Avro IDL specification into an Avro schema in JSON
+format, which is used by Avro serialization frameworks for automatic
+serialization and deserialization of objects that conform to the schema.
+Avro (and the TA3 APIs) additionally provide the tools for automatic 
+syntax checking to verify the data conforms to the typed schema.
+
+Both the schema and this documentation are kept in the same git
+repository and will evolve together. The latest development snapshot
+containing the evolving schema is in a git repository shared with the
+rest of the TC team at the following URL
+\href{https://git.tc.bbn.com/bbn/ta3-serialization-schema/tree/master/avro}{https://git.tc.bbn.com/bbn/ta3-serialization-schema/tree/master/avro}.
+Look for the latest version $xx$ of the schema file {\em CDMxx.avdl}.
+
+\section{History}\label{sec:history}
+
+\begin{longtable}{|c|p{17cm}|}
+\hline
+Version & Changes \\\hline
+0.3 & \small
+  - Added File and Flow subclasses to Object \newline  
+  - Added Value object \newline
+  - Added source to all entities \newline
+  - Marked that tags discussion is still in progress \newline
+  - Added location/size to the affects relation from obj to event
+\\\hline
+0.4 & \small
+  - Revamp of the Events \newline
+  - Revamp of the Objects \newline
+  - Revamp of the Tags \newline
+  - Incorporated material from tags writeup by Sekar/Venkat \newline
+  - Placeholder for tag structure pending discussion with Venkat          
+\\\hline
+0.5 & \small 
+  - Added description of some key attributes \newline
+  - Added schema section showing typed schema \newline
+  - Added memory subclass, disambiguate Value as its own entity \newline 
+  - Moved location and size as optional attributes of event \newline
+  - Made sequence an attribute of event \newline
+  - Updated provenance tag description (structure is work in progress)
+\\\hline
+0.6 &  \small
+  - Added SensorObject and SensorTypes to accommodate Android  \newline
+  - Renamed Source to InstrumentationSource and defined a set of them  \newline
+  - Added program point to event, and added blind event type  \newline
+  - Added principal, does not yet model authentication  \newline
+  - Added unique ids (uids) to all entities, important for streaming efficiency and for modeling edges  \newline
+  - Refactored Tags, now ProvenanceTag entity has tagExpression, and conf/integ tags as attributes  \newline
+  - Refactored timestamps, now long (we will add logical types when that is supported in IDL)  \newline
+  - Refactored Object inheritance for AbstractObject, File, Netflow, Memory, Sensor  \newline
+  - Added optional key-value pairs to all entities and edges for extensibility  \newline
+  - Added start and end timestamps to subject and unitid to model unit instrumentation \newline
+  - Specified optional vs mandatory fields \newline
+  - Added meta event concept using hasParent edge for event
+\\\hline
+0.7 &  \small
+  - Refactored Value; it is not a first class entity anymore, we made it an attribute of the event  \newline
+  - Tag expression modeled as a tree using ProvenanceTagNode  \newline
+  - Removed all edges previously associated with Value  \newline
+  - Refactored tags representation: added ProvenanceTagNode that uses tree representation  \newline
+  - Associated values with tags allowing run length encoding  \newline
+  - Added SOURCE\_WINDOWS\_DIFT\_FAROS to instrumentation sources  \newline
+  - Added attributes to Subject for env vars: imported/exported libs, process information  \newline
+  - Renamed SensorObject to SourceObject, representing generic source (sensor or other)  \newline
+  - Made subject pid, ppid mandatory 
+\\\hline
+0.8 & \small
+  - Rename entity uid attribute back to uuid to avoid confusion with user id \newline
+  - Rename SourceObject to SrcSinkObject: every sink can be a source but the opposite is not true \newline
+  - Rename SourceType to SrcSinkType \newline
+  - Add SourceType.SOURCE\_SINK\_IPC, MIT/ClearScope is using this to represent net flow and internal IPC \newline
+  - Add SourceType.SOURCE\_SYSTEM\_PROPERTY for representing program property variables \newline
+  - Added SOURCE\_FREEBSD\_DTRACE\_CADETS, SOURCE\_FREEBSD\_TESLA\_CADETS for CADETS instrumentation sources \newline
+  - Add EDGE\_FILE\_AFFECTS\_EVENT, EDGE\_NETFLOW\_AFFECT\_EVENT, EDGE\_MEMORY\_AFFECTS\_EVENT, \newline
+  - Remove ProvenanceTagNode.numChildren, gets confusing with tag nodes referencing tagIds \newline
+  - Add ProvenanceTagNode attribute tag to the objects which subsumes Integrity and Confidentiality tags and is more expressive \newline 
+  - Add optional k/v pairs to the ProvenanceTagNode for flexibility, using this in ClearScope for program point keys \newline
+  - Updated ProvenanceTagNode.value union, replaced string with long. This is to reference uuid for source/sink object \newline
+  - Add SOURCE\_AUDIO to the SrcSinkTypes \newline
+  - Add optional attribute Event.name, common across datasets \newline
+  - Added unknown even types EVENT\_KERNEL\_UNKNOWN, EVENT\_APP\_UNKNOWN etc which will be used sparingly \newline
+  - Added edge types EDGE\_EVENT\_AFFECTS\_SRCSINK, EDGE\_SRCSINK\_AFFECTS\_EVENT for generic source/sink objects \newline
+  - Added Value.valueDataType to describe the type of the Event.parameters's value (not always byte[]) \newline 
+  - Updated Value.tag run length encoding \newline
+  - Added Event.threadId since adding a separate thread entity seems overkill when its not adding any info  
+\\\hline
+0.9 & \small
+  - Added InstrumentationSource SOURCE\_LINUX\_BEEP\_TRACE \newline
+  - Added EventType EVENT\_CLONE, EVENT\_RENAME, EVENT\_UNIT, EVENT\_UPDATE \newline
+  - Added boolean isPipe field to FileObject \newline
+  - Added 256 bit UUID for all entities instead of the long (long term solution) \newline
+  - Added default value 0 for Event.sequence and made Event.timestampMicros optional \newline
+  \tab - Needed for synthetic events where time or order is not known (e.g. some TRACE events) \newline
+  - Made MemoryObject.pageNumber optional \newline
+  - Fix typo in SrcSinkType.SOURCE\_HEART\_RATE 
+\\\hline
+10 & \small
+  - Add SubjectType.BASIC\_BLOCK \newline
+  - Make Subject.startTimeMicros optional (for processes that have started before monitoring starts) \newline
+  - Add ValueType enum and Value.type to distinguish input vs return values \newline
+  - Make Value more expressive to allow complex data types i.e. add Value.components=array<Value> \newline
+  - Add event types EVENT\_RECVFROM, EVENT\_RECVMSG \newline
+  - Add InstrumentationSource.SOURCE\_LINUX\_THEIA \newline
+  - Create a new entity TagEntity with a uuid and a ProvenanceTagNode (and perhaps a InstrumentationSource) that we can use \newline
+  \tab for Subjects and Objects and Events \newline
+  - Add the EdgeTypes for subject/object/event tags and add an edge between events EDGE\_EVENT\_CAUSED\_EVENT, \newline
+  \tab EDGE\_FILE\_HAS\_TAG, EDGE\_NETFLOW\_HAS\_TAG, EDGE\_MEMORY\_HAS\_TAG, EDGE\_SRCSINK\_HAS\_TAG, \newline
+  \tab EDGE\_SUBJECT\_HAS\_TAG, EDGE\_EVENT\_HAS\_TAG \newline
+  - Remove the AbstractObject.tag (replaced with the TagEntity and hasTag edge)
+\\\hline
+11 & \small
+  - Added enum ValueDataType for typing primitive values and complex values \newline
+  - Updated Value.valueDataType to be of type ValueDataType for stronger typing \newline
+  - Value.valueBytes should assume UTF\_32BE encoding for all characters and strings \newline
+  - Updated docs for Value.tag, Value.size, and Value.valueBytes with examples \newline
+  - Added TCCDMDatum.CDMVersion=11 field to keep the CDM version explicit in the data
+\\\hline
+12 & \small
+  - Add VALUE\_DATA\_TYPE\_BOOL data type: a boolean will be represented as a single byte TRUE=1, FALSE=0 \newline
+  - Value.valueDataType is now mandatory, used to be optional \newline
+  - Added flag Value.isNull = true for null values \newline
+  - Added Value.runtimeDataType which is a string representing the runtime data type of the value \newline
+  - Updated documentation for Value record
+\\\hline
+13 & \small
+  - Add event types: \newline
+  \tab EVENT\_SENDTO send through socket, \newline
+  \tab EVENT\_SENDMSG send through socket, \newline
+  \tab EVENT\_SHM share memory between processes \newline
+  - Add timestamp to TagEntity since multiple tags may be associated with the same entity over time \newline
+  \tab - This is to avoid having to rely on the edge timestamp \newline
+  - Changes to support five directions data (windows): \newline
+  \tab (1) Add RegistryKey object, \newline 
+  \tab (2)  Add Value.name string: events that read/write from registry can specify the registry values as Values \newline
+  \tab (3) Add Netflow protocol attribute, optional (TCP=6, UDP=17, IPv4=6, etc) \newline
+  \tab (4) Add the edges EDGE\_REGISTRYKEY\_AFFECTS\_EVENT, EDGE\_REGISTRYKEY\_HAS\_TAG, \newline
+  \tab\tab\tab EDGE\_EVENT\_AFFECTS\_REGISTRYKEY 
+\\\hline
+14 & \small
+  - Modify ProvenanceTagNode based on feedback from RIPE and ClearScope: \newline
+  \tab (1) remove union value and tree structure \newline
+  \tab (2) removed arbitrary key value pairs \newline
+  \tab (3) increased tagId from int to UUID \newline
+  \tab (4) added previous tag field \newline
+  \tab (5) added opNode field\newline
+  - Add ProvenanceOpNode to combine tags \newline
+  - Incoming and outging edges to/from events are now embedded in the event record: \newline
+  \tab (1) add subject (incoming) UUID and object/subject (outgoing) UUID fields to event record \newline
+  \tab (2) remove event affects, affects event, and event is generated by edge types \newline
+  - Remove *\_HAS\_TAG edge types with no replacements \newline
+  - Remove EDGE\_EVENT\_CAUSES\_EVENT edge type with no replacement \newline
+  - Add parent subject and local principal fields to subject record \newline
+  \tab - Removes has parent and has local principal edge types \newline
+  - Remove simple edge record \newline
+  - Add optional fields ‘iteration’ and ‘count’ to ‘Subject’ record \newline
+  \tab - Needed for distinguishing individual “units” of execution \newline
+  - Add optional ‘epoch’ field to ‘AbstractObject’ record \newline
+  \tab - Needed to model when an object is deleted and a new one is created with the same identifier (such as a file path) \newline
+  - Add optional ‘size’ field to ‘MemoryObject’ record \newline
+  \tab - Needed to model the span of memory reported in mmap() / mprotect() calls \newline
+  - Remove notion of object versions, because TA2s will assign versions based on event sequence: \newline
+  \tab (1) Remove EDGE\_OBJECT\_PREV\_VERSION edge type \newline
+  \tab (2) Remove ‘version’ from ‘FileObject’ and ‘RegistryObject’ records \newline
+  \tab (3) Remove lastTimestampNanos from AbstractObject record \newline
+  - Remove unknown source to force people to identify them \newline
+  - Change unknown event type to other event type to more accurately reflect what is being modeled \newline
+  \tab - It's not that the reporter doesn't know the type, but that we haven't enumerated ALL types \newline
+  - Add FileObject types \newline
+  - Remove generic event pInfo field \newline
+  \tab - Fields that TA1s need should be first-class attributes, possibly optional \newline
+  - Remove TagEntity record \newline
+  \tab - Tags should always included as attributes of records, and not associated later \newline
+  - Increase timestamp precision to nanoseconds and make timestamps mandatory \newline
+  - Add TimeMarker record \newline
+  - Add more data Android data sources \newline
+  - Change event param value types to src, sink and control \newline
+  - Add UnnamedPipeObject \newline
+  - Add new event types \newline
+  - Add CryptographHash record and cryptographic hash types \newline
+  - Move Windows Program Execution (PE) info from Subject to FileObject \newline
+  - Add value to RegistryKeyObject \newline
+  - Remove file path/url from FileObject; instead include it in event records \newline
+  \tab - This solves the issue of hard links where multiple paths reference a single file UUID. \newline
+  - Add optional Windows privilege level attribute to Subjects \newline
+  - Change src/dst IP address and port to inbound/outboud to make the semantics independent of the event (eg, connect vs accept) \newline
+  - Remove LocalAuthType since it is not currently used \newline
+  - Add username (or human-readable string identifier) to Principal \newline
+\\\hline
+15 & \small
+  - Make Subject's parentSubject attribute optional and default value to null \newline
+  \tab - Identifies to consumer which parents have not been set, which is valid in cases where the publisher doesn't know the parent. \newline
+  - Value's size attribute is now -1 for non-array types (also: -1 default size) \newline
+  - Move source attribute to top level TCCDMDatum record \newline
+  \tab - Less useful and redundant in other records \newline
+  - Change Event's predicateObject to optional, because it's not always applicable \newline
+  - Add flowObject, subject, and systemCall attributes to ProvenanceTagNode \newline
+  - Reinstate memoryAddress in MemoryObjects, and allow optional decomposed components pageNumber \& pageOffset \newline
+  - Remove UnnamedPipeObject's localPrincipal field \newline
+  \tab - This object type is transient, and the principal is already in the provenance chain as the controller of the subject that created the \newline
+  \tab\tab unnamed pipe object \newline
+  - Add optional fileDescriptor field to NetFlow and SrcSinkObjects \newline
+  - Add FileObjectType field to FileObject record \newline
+  \tab - This field was mistakenly missing in previous version \newline
+  - Change ProvenanceTagNode's flowObject to optional \newline
+  - Change TimeMarker's timestamp field's name \newline
+  \tab - This is a hack to overcome a bug with Python deserialiation of union records. \newline
+  - Change NetFlow's inbound/outbound to local/remote \newline
+  \tab - more intuitive names \newline
+  - Add UnitDependency edge record \newline
+\\\hline
+16 & \small
+  - Add SOURCE\_SINK\_UNKNOWN SrcSinkType \newline
+  \tab - useful when objects are opened before TA1 technology is started \newline
+  - Add EVENT\_MODIFY\_PROCESS for events that modify the process environment (eg, umask, chdir) \newline
+\\\hline
+17 & \small
+  - Added new Android service types to SrcSinkType enum \newline
+  - Modified SrcSinkType's enum value prefix \newline
+\\\hline
+18 & \small
+  - Adds CDM version number to namespace \newline
+  - Adds StartMarker and EndMarker records to delineate system/data stream start/stop \newline
+  - Adds PacketSocketObject \newline
+  - Adds EVENT\_ADD\_OBJECT\_ATTRIBUTE, which is used to add attributes to an object that was incomplete at the time of publish. \newline
+  - Adds EVENT\_FLOWS\_TO, EVENT\_UMOUNT, EVENT\_SERVICEINSTALL \newline
+  - Replaces SOURCE\_LINUX\_AUDIT\_TRACE in enum InstrumentationSource with SOURCE\_LINUX\_SYSCALL\_TRACE and \newline
+  \tab SOURCE\_LINUX\_NETFILTER\_TRACE \newline
+  \tab - TRACE is now using Audit's net filter records in addition to system call records. \newline
+  - Adds link, block special, char special file types \newline
+  - Adds 32-bit and 64-bit pointer value types \newline
+  - Adds optional source \& sink UUIDs to UnnamedPipeObject. Also, makes source/sink file descriptor attributes optional \newline
+  - Adds Host record and associated records \& enums to support cross-host provenance \newline
+  - Adds support for ProvenanceAssertion records \newline
+  - Changes Event's sequence attribute to optional for inferred events \newline
+  - Sets the @order("ignore") property for maps, so that they can be compared \newline
+  - Adds SOURCE\_WINDOWS\_MARPLE to InstrumentationSource enum \newline
+\\\hline
+\end{longtable}
+
+\end{document}

@@ -1,0 +1,11 @@
+{
+  "type" : "record",
+  "name" : "TimeMarker",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* TimeMarker records are used to delineate time periods in a data\n     * stream to help consumers know their current read position in the\n     * data stream.",
+  "fields" : [ {
+    "name" : "tsNanos",
+    "type" : "long",
+    "doc" : "Timestamp in nanoseconds"
+  } ]
+}

@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "FileObjectType",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* These types enumerate the types of FileObjects",
+  "symbols" : [ "FILE_OBJECT_BLOCK", "FILE_OBJECT_CHAR", "FILE_OBJECT_DIR", "FILE_OBJECT_FILE", "FILE_OBJECT_LINK", "FILE_OBJECT_PEFILE", "FILE_OBJECT_UNIX_SOCKET" ]
+}

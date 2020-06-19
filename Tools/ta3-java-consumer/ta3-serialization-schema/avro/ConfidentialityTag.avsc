@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "ConfidentialityTag",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* The confidentiality tag may be used to specify the initial confidentiality of an entity,\n     * or to declassify its content after performing appropriate checking/sanitization.",
+  "symbols" : [ "CONFIDENTIALITY_SECRET", "CONFIDENTIALITY_SENSITIVE", "CONFIDENTIALITY_PRIVATE", "CONFIDENTIALITY_PUBLIC" ]
+}

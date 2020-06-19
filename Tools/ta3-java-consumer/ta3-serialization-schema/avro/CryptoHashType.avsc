@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "CryptoHashType",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "Cryptographich hash types",
+  "symbols" : [ "MD5", "SHA1", "SHA256", "SHA512", "AUTHENTIHASH", "SSDEEP", "IMPHASH" ]
+}

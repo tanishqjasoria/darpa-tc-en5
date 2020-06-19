@@ -1,0 +1,168 @@
+Preliminaries
+—————
+I am using Apache Avro serialization [1] and a very simple schema representing a
+labeled property graph. Basically, a node has a label (int, index into an enum)
+and an id (long), and optional key/value pairs. An edge has a from node, a to
+node, and a label (int), and optional k/v pairs.
+It is easy to map the bitcoin records to this schema.
+Each edge has two nodes and a label where each node has a label and an id.
+
+The following results show the throughput of avro serialization and the
+overhead. Basically, I read the bitcoin csv dataset line by line, convert each line
+to our edge schema, and serialize the edge record to a file. When done,
+I ingest the avro file, and deserialize the records one by one, and output those.
+In the process, I benchmark serialization, record creation, and deserialization.
+I also measure the serialized bytes per record (based on our simple schema).
+
+Serialization (throughput and compactness)
+—————
+The time in ms to serialize a single record (write an Edge object to the file) is
+Avg per sample: 3.203860536735592E-4
+Total count: 181840000
+
+This means the serialization throughput is > 3M edges/sec per core
+The average serialized bytes per edge is
+Avg per sample: 13.983309161900571
+Total count: 181840000
+
+Note that this is the average since avro uses varints to represent ints and longs [2].
+This saves space and avro does not include any structure with the record which also
+saves space.
+
+The serialized binary avro dataset is 2542809186 bytes whereas the csv file
+is 4720767816 btyes. This is ~2x reduction.
+
+Deserialization (throughput)
+—————
+The time in ms to deserialize a single record (read from avro file and convert to
+and Edge object) is
+Avg per sample: 4.37E-4
+
+This means a deserialization throughput of ~2.3M records/sec per core
+
+Discussion
+—————
+These results are only intended to give us a baseline.
+
+I have not optimized the serialization framework yet so we can expect higher
+throughput with some simple optimization (e.g., using schema compilation)
+
+Results depend on the schema, so if the record has k/v pairs the cost will
+increase obviously.
+
+I made the avro encoded dataset and the graph schema available to you at [3]
+-rw-------    1 ftp      ftp          1746 Oct 08 18:30 LabeledGraph.avsc
+-rw-------    1 ftp      ftp      2542809186 Oct 08 15:41 bitcoin.avro
+
+We will be releasing our early APIs (kafka, discovery, serialization) hopefully
+in November. Deserializing the avro dataset should be straightforward [4]
+I am happy to share with you the benchmark code if you find you need it.
+
+There are several reasons why we are recommending avro relative to other
+frameworks like thrift and protobuf. Happy to discuss those if you like.
+
+References
+—————
+[1] http://avro.apache.org
+[2] https://developers.google.com/protocol-buffers/docs/encoding?csw=1
+[3] Link: ftp://bbn-75463:SxxNkAln@ftp.bbn.com
+[4] http://avro.apache.org/docs/current/gettingstartedjava.html#Deserializing-N10207
+
+=================
+###  Results ###
+=================
+
+15/10/08 10:56:49 INFO BitcoinBenchmark:
+--------------------
+###	Edge Serialization (ms)  per 10000
+--------------------
+Min: 2
+Max: 97
+Avg: 3.2038605367355917
+Count: 18184
+-------------------
+Avg per sample: 3.203860536735592E-4
+Total count: 181840000
+-------------------
+
+15/10/08 10:56:49 INFO BitcoinBenchmark: 
+--------------------
+###	Edge Creation (ms)  per 10000
+--------------------
+Min: 4
+Max: 105
+Avg: 4.878244610646722
+Count: 18184
+-------------------
+Avg per sample: 4.878244610646722E-4
+Total count: 181840000
+-------------------
+
+15/10/08 10:56:49 INFO BitcoinBenchmark: 
+--------------------
+###	Serialized Record Bytes (bytes)  per 10000
+--------------------
+Min: 104302
+Max: 140063
+Avg: 139833.09161900572
+Count: 18184
+-------------------
+Avg per sample: 13.983309161900571
+Total count: 181840000
+-------------------
+
+
+============ ============ ============ ============
+============ for part of the dataset, including deserialization
+============ ============ ============ ============
+
+--------------------
+###	Edge Serialization (ms)  per 10000
+--------------------
+Min: 2
+Max: 97
+Avg: 3.402
+Count: 1000
+-------------------
+Avg per sample: 3.4020000000000003E-4
+Total count: 10000000
+-------------------
+
+15/10/08 13:34:00 INFO BitcoinBenchmark:
+--------------------
+###	Edge Creation (ms)  per 10000
+--------------------
+Min: 4
+Max: 104
+Avg: 5.289
+Count: 1000
+-------------------
+Avg per sample: 5.289E-4
+Total count: 10000000
+-------------------
+
+15/10/08 13:34:00 INFO BitcoinBenchmark:
+--------------------
+###	Serialized Record Bytes (bytes)  per 10000
+--------------------
+Min: 104302
+Max: 140062
+Avg: 138115.086
+Count: 1000
+-------------------
+Avg per sample: 13.811508600000002
+Total count: 10000000
+-------------------
+
+15/10/08 13:34:00 INFO BitcoinBenchmark:
+--------------------
+###	Edge Deserialization (ms)  per 10000
+--------------------
+Min: 3
+Max: 163
+Avg: 4.37
+Count: 1000
+-------------------
+Avg per sample: 4.37E-4
+Total count: 10000000
+-------------------

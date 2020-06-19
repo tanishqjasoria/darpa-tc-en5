@@ -1,0 +1,7 @@
+{
+  "type" : "enum",
+  "name" : "PrincipalType",
+  "namespace" : "com.bbn.tc.schema.avro.cdm20",
+  "doc" : "* PrincipalType identifies the type of user: either local to the\n     * host, or remote users/systems.",
+  "symbols" : [ "PRINCIPAL_LOCAL", "PRINCIPAL_REMOTE" ]
+}
