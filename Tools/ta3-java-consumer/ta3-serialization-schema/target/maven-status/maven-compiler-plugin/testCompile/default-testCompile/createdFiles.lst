@@ -1,0 +1,14 @@
+com/bbn/tc/schema/BaseTest.class
+com/bbn/tc/schema/CompiledSerDeClassTest.class
+com/bbn/tc/schema/GenericSerDeTest.class
+com/bbn/tc/schema/UUIDTest.class
+com/bbn/tc/schema/CDMCompiledSerDeTest.class
+com/bbn/tc/schema/SchemaUtilsTest.class
+com/bbn/tc/schema/CDMGenericSerDeTest.class
+com/bbn/tc/schema/MixedGenericSerDeTest.class
+com/bbn/tc/schema/CompiledSerDeTest.class
+com/bbn/tc/schema/ByteRecordTest.class
+com/bbn/tc/schema/ByteBufferTest.class
+com/bbn/tc/schema/MixedGenericTest.class
+com/bbn/tc/schema/MixedSerDeTest.class
+com/bbn/tc/schema/StringToDateTest.class

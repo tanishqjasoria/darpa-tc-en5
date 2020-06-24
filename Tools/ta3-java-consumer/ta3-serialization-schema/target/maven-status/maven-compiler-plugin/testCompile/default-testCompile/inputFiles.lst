@@ -1,0 +1,14 @@
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/UUIDTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/SchemaUtilsTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/CompiledSerDeClassTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/ByteRecordTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/MixedGenericSerDeTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/ByteBufferTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/CDMGenericSerDeTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/BaseTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/CompiledSerDeTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/StringToDateTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/CDMCompiledSerDeTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/GenericSerDeTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/MixedSerDeTest.java
+/home/eurus/darpa-tc-en5/Tools/ta3-java-consumer/ta3-serialization-schema/src/test/java/com/bbn/tc/schema/MixedGenericTest.java
