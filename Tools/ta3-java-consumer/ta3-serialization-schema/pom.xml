@@ -31,7 +31,7 @@
     <mvn-assembly-version>2.2.1</mvn-assembly-version>
     <mvn-surefire-version>2.19</mvn-surefire-version>
     <mvn-clean-plugin-version>3.0.0</mvn-clean-plugin-version>
-    <junit-version>4.11</junit-version>
+    <junit-version>4.13.1</junit-version>
     <exec-maven-plugin-version>1.4.0</exec-maven-plugin-version>
     <mvn-compiler-plugin-version>3.5.1</mvn-compiler-plugin-version>
   </properties>
